@@ -13,3 +13,4 @@ Density matrix embedding theory for periodic/molecular systems
 ### 3. On progress:
 - Smith decomposition for a UHF wavefunction
 - Smith decomposition from a Kohn-Sham 1RDM
+- Maximally localized Wannier functions for pyscf/pbc class
