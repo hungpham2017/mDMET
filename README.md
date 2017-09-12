@@ -1,9 +1,10 @@
-# pydmet
+# pyDMET
 Density matrix embedding theory for periodic/molecular systems
 
-## NOTES:
-### 1. The molecular DMET (mdmet) uses some of the functions in the QC-DMET <Copyright (C) 2015 Sebastian Wouters>
-### 2. New Features:
+## Overview:
+### 1. Notes: 
+- The molecular DMET (mdmet) uses some of the functions in the QC-DMET <Copyright (C) 2015 Sebastian Wouters>
+### 2. Features:
 - Using overlap matrix to do Smith decomposition
 - Using symmetry and multiple solvers
 - single-embedding DMET (similar to CASCI=True in QC-DMET)
