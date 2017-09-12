@@ -3,7 +3,7 @@ Density matrix embedding theory for periodic/molecular systems
 
 ## Overview:
 ### 1. Notes: 
-- The molecular DMET (mdmet) uses some of the functions in the QC-DMET <Copyright (C) 2015 Sebastian Wouters>
+- The molecular DMET (mdmet) uses some functions in the QC-DMET <Copyright (C) 2015 Sebastian Wouters>
 ### 2. Features:
 - Using overlap matrix to do Smith decomposition
 - Using symmetry and multiple solvers
