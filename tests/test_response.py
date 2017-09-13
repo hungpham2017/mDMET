@@ -15,7 +15,7 @@ import scipy as scipy
 sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
 import localintegrals, qcdmet_paths
 import dmet as qc_dmet
-sys.path.append('./lib')
+sys.path.append('./lib/build')
 import libdmet
 import ctypes
 
