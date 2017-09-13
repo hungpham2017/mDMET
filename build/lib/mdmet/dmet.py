@@ -12,7 +12,7 @@ import numpy as np
 from scipy import optimize
 from functools import reduce
 from . import orthobasis, smithbasis, qcsolvers
-sys.path.append('./lib')
+sys.path.append('./lib/build')
 import libdmet
 
 class DMET:
@@ -146,7 +146,7 @@ class DMET:
 			dmetCoreJK = self.orthobasis.dmet_corejk(FBEorbs, Norb_in_imp, core1RDM_ortho)
 			
 			#Solving the embedding problem with high level wfs
-			DMguess = None #reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, orthoOED[1], FBEorbs[:,:Norb_in_imp]))
+			DMguess = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, orthoOED[1], FBEorbs[:,:Norb_in_imp]))
 			solver = qcsolvers.QCsolvers(dmetOEI, dmetTEI, dmetCoreJK, DMguess, Norb_in_imp, Nelec_in_imp, numImpOrbs, chempot)
 			if self.solver == 'RHF':
 				ImpEnergy, E_emb, RDM1 = solver.RHF()

@@ -5,6 +5,8 @@ __pycache__
 .cache
 CMakeFiles
 libdmet*
+pyDMET.egg-info
+dist/*
 
 # Compiled source #
 ###################
