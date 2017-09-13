@@ -86,8 +86,8 @@ class DMET:
 		
 		self.emb_1RDM = []	
 		self.emb_orbs = []		
-		self.E_fragments = []
-		self.Nelec_fragments= []
+		self.fragment_energies = []
+		self.fragment_nelecs = []
 		
 	def kernel(self, chempot = 0.0, single_embedding = False):
 		'''
@@ -97,14 +97,14 @@ class DMET:
 		Args:
 			chempot					: global chemical potential to adjust the numer of electrons in each fragment
 		Return:
-			Nelec_fragments.sum() 	: the total number of electrons
+			fragment_nelecs.sum() 	: the total number of electrons
 		Update the class attributes:
-			E_fragments				: an array of the energy for each fragment.   
-			Nelec_fragments			: an array of the number of electrons for each fragment		
+			fragment_energies		: an array of the energy for each fragment.   
+			fragment_nelecs			: an array of the number of electrons for each fragment		
 			emb_1RDM				: an array of the 1RDM for each fragment				
 		'''			
-		self.E_fragments = []
-		self.Nelec_fragments = []
+		self.fragment_energies = []
+		self.fragment_nelecs = []
 		self.emb_1RDM = []
 		self.emb_orbs = []
 		
@@ -163,25 +163,25 @@ class DMET:
 				pass			
 				
 			#Collecting the energies/RDM1/no of electrons for each fragment
-			#if single_embedding == True, then self.E_fragments is a list of the embedding energy, core1RDM, Nelec_in_environment (not rounded)
+			#if single_embedding == True, then self.fragment_energies is a list of the embedding energy, core1RDM, Nelec_in_environment (not rounded)
 			if single_embedding == False:
-				self.E_fragments.append(ImpEnergy)				
+				self.fragment_energies.append(ImpEnergy)				
 			else:
-				self.E_fragments.extend([E_emb, core1RDM_ortho, Nelec_in_environment])
+				self.fragment_energies.extend([E_emb, core1RDM_ortho, Nelec_in_environment])
 				
 			self.emb_1RDM.append(RDM1)
 			self.emb_orbs.append(FBEorbs[:,:Norb_in_imp])
 			ImpNelecs = np.trace(RDM1[:numImpOrbs,:numImpOrbs])
-			self.Nelec_fragments.append(ImpNelecs)
+			self.fragment_nelecs.append(ImpNelecs)
 		
 		#Transform the irreducible energy/electron lists to the corresponding full lists
 		if single_embedding == False:
-			self.E_fragments = np.asarray(self.E_fragments)[self.inverse_indices]
-		self.Nelec_fragments = np.asarray(self.Nelec_fragments)[self.inverse_indices]	
+			self.fragment_energies = np.asarray(self.fragment_energies)[self.inverse_indices]
+		self.fragment_nelecs = np.asarray(self.fragment_nelecs)[self.inverse_indices]	
 		
 		multiplicty = 1.0
 		if self.symmetry == [0]: multiplicty = self.imp_size.size		
-		return self.Nelec_fragments.sum()*multiplicty
+		return self.fragment_nelecs.sum()*multiplicty
 
 	def one_shot(self):
 		'''
@@ -190,9 +190,9 @@ class DMET:
 
 		if self.single_embedding == True:
 			assert len(self.impCluster) == 1		
-			Nelec_fragments = self.kernel(chempot = 0.0, single_embedding = True)
-			E_embedding = self.E_fragments[0]
-			orthoOED_core = self.E_fragments[1]
+			Fragment_nelecs = self.kernel(chempot = 0.0, single_embedding = True)
+			E_embedding = self.fragment_energies[0]
+			orthoOED_core = self.fragment_energies[1]
 			Jcore = np.einsum('pqrs,rs->pq', self.orthobasis.orthoTEI, orthoOED_core)
 			Kcore = np.einsum('prqs,rs->pq', self.orthobasis.orthoTEI, orthoOED_core)
 			JKcore = Jcore - 0.5*Kcore
@@ -201,12 +201,12 @@ class DMET:
 			print('Embedding energy              : ' , E_embedding, ' a.u.') 
 			print('Pure/Core environment energy  : ' , E_core, ' a.u.') 
 			E_total = E_embedding + E_core + self.mf.energy_nuc()
-			self.Nelec_fragments = np.asarray(self.emb_1RDM[0]).trace() + self.E_fragments[2]		
+			self.fragment_nelecs = np.asarray(self.emb_1RDM[0]).trace() + self.fragment_energies[2]		
 		else:
 			self.chempot = optimize.newton(self.nelecs_costfunction, self.chempot, tol = 1.e-10)
 			multiplicty = 1
 			if self.symmetry == [0]: multiplicty = self.imp_size.size
-			E_total = self.E_fragments.sum()*multiplicty + self.mf.energy_nuc()
+			E_total = self.fragment_energies.sum()*multiplicty + self.mf.energy_nuc()
 			print(E_total)
 		
 		return E_total

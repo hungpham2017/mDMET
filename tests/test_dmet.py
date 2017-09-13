@@ -87,7 +87,7 @@ def test_kernel():
 	symmetry = None
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	Nelecs = runDMET.kernel()
-	Etotal = runDMET.E_fragments.sum()
+	Etotal = runDMET.fragment_energies.sum()
 
 	assert np.isclose(Nelecs, mol.nelectron)
 	assert np.isclose(Etotal, mf.energy_elec()[0])
@@ -99,8 +99,8 @@ def test_one_shot_DMET():
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.embedding_symmetry = [0, 1, 2, 3, 4]
 	E_total = runDMET.one_shot()
-	Nelecs = runDMET.Nelec_fragments.sum()
-	Etotal = runDMET.E_fragments.sum()
+	Nelecs = runDMET.fragment_nelecs.sum()
+	Etotal = runDMET.fragment_energies.sum()
 
 	assert np.isclose(Nelecs, mol.nelectron)
 	assert np.isclose(Etotal, mf.energy_elec()[0])
@@ -113,7 +113,7 @@ def test_single_embedding():
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'overlap', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.single_embedding = True
 	E_total = runDMET.one_shot()
-	Nelecs = runDMET.Nelec_fragments.sum()	
+	Nelecs = runDMET.fragment_nelecs.sum()	
 
 	assert np.isclose(Nelecs, mol.nelectron)	
 	assert np.isclose(E_total, mf.e_tot)
