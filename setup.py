@@ -7,7 +7,7 @@ if __name__ == "__main__":
         description='Density Matrix Embedding Theory for Periodic/Molecular systems',
         author='Hung Pham',
         author_email='phamx494@umn.edu',
-        url="https://github.com/hungpham2017/pdmet.git",
+        url="https://github.com/hungpham2017/pydmet.git",
         license='BSD-3C',
         packages=setuptools.find_packages(),
         install_requires=[

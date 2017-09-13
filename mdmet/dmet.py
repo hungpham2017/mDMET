@@ -12,7 +12,7 @@ import numpy as np
 from scipy import optimize
 from functools import reduce
 from . import orthobasis, smithbasis, qcsolvers
-sys.path.append('./lib')
+sys.path.append('./lib/build')
 import libdmet
 
 class DMET:

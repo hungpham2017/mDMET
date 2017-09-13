@@ -122,8 +122,9 @@ def test_bathconstruction():
 
 	Nel, Nimp = 4, 2
 	chempot= 0.0
-	solver1 = qcsolvers.QCsolvers(OEIdmet1, TEIdmet1, JKdmet1, numAct, Nel, Nimp, chempot)
-	solver2 = qcsolvers.QCsolvers(OEIdmet2, TEIdmet2, JKdmet2, numAct, Nel, Nimp, chempot)	
+	DMguess = None
+	solver1 = qcsolvers.QCsolvers(OEIdmet1, TEIdmet1, JKdmet1, DMguess, numAct, Nel, Nimp, chempot)
+	solver2 = qcsolvers.QCsolvers(OEIdmet2, TEIdmet2, JKdmet2, DMguess, numAct, Nel, Nimp, chempot)	
 	Eimp1, Eemb1, OED1 = solver1.RHF()
 	Eimp2, Eemb2, OED2 = solver2.RHF()
 	assert np.isclose(Etest1 + Eemb1, mf.energy_elec()[0])
