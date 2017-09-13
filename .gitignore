@@ -3,6 +3,8 @@
 *.panfs*
 __pycache__
 .cache
+CMakeFiles
+libdmet*
 
 # Compiled source #
 ###################

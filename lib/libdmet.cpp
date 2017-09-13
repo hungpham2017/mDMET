@@ -64,7 +64,7 @@ py::array_t<double> rhf_response(const int Norb, const int Nterms, const int num
 	
     for ( int orb_vir = 0; orb_vir < nVir; orb_vir++ ){
         for ( int orb_occ = 0; orb_occ < numPairs; orb_occ++ ){
-            temp[orb_vir + nVir*orb_occ] = - 1.0 / (eigvals[numPairs + orb_vir] - eigvals[orb_occ]);
+            temp[nVir*orb_occ + orb_vir] = - 1.0 / (eigvals[numPairs + orb_vir] - eigvals[orb_occ]);
         }
     }
 	
