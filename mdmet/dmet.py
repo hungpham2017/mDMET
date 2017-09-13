@@ -336,7 +336,7 @@ class DMET:
 			the_gradient.append(frag_gradient)
 		return the_gradient
 
-######################################## USEFUL FUNCTION for DMEG class ######################################## 
+######################################## USEFUL FUNCTION for DMET class ######################################## 
 		
 	def make_imp_size(self):
 		'''
