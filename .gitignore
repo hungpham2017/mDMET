@@ -7,7 +7,8 @@ CMakeFiles
 libdmet*
 pyDMET.egg-info
 dist/*
-lib/*
+lib/build
+build
 
 # Compiled source #
 ###################
