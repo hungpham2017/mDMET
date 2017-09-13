@@ -81,7 +81,7 @@ class DMET:
 		self.mask, self.redundant = self.make_mask()
 		self.H1start, self.H1row, self.H1col = self.make_H1()[1:4]	#Use in the calculation of 1RDM derivative 
 		self.uvec = self.make_uvec()
-		self.Nterms = self.uvec.size
+		self.Nterms = self.uvec.size		
 		self.chempot = 0.0
 		
 		self.emb_1RDM = []	
@@ -140,14 +140,17 @@ class DMET:
 				Nelec_in_environment = self.Nelecs - Nelec_in_imp
 				core1RDM_ortho = 2*np.dot(FBEorbs[:,Norb_in_imp:], FBEorbs[:,Norb_in_imp:].T)				
 				
-			#Transform the 1e/2e integrals and the core constribution to Smith basis
-			dmetOEI  = self.orthobasis.dmet_oei( FBEorbs, Norb_in_imp)
-			dmetTEI  = self.orthobasis.dmet_tei( FBEorbs, Norb_in_imp)			
+			#Transform the 1e/2e integrals and the JK core constribution to Smith basis
+			dmetOEI  = self.orthobasis.dmet_oei(FBEorbs, Norb_in_imp)
+			dmetTEI  = self.orthobasis.dmet_tei(FBEorbs, Norb_in_imp)			
 			dmetCoreJK = self.orthobasis.dmet_corejk(FBEorbs, Norb_in_imp, core1RDM_ortho)
-
-			solver = qcsolvers.QCsolvers(dmetOEI, dmetTEI, dmetCoreJK, Norb_in_imp, Nelec_in_imp, numImpOrbs, chempot)
+			
+			#Solving the embedding problem with high level wfs
+			DMguess = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, orthoOED[1], FBEorbs[:,:Norb_in_imp]))
+			solver = qcsolvers.QCsolvers(dmetOEI, dmetTEI, dmetCoreJK, DMguess, Norb_in_imp, Nelec_in_imp, numImpOrbs, chempot)
 			if self.solver == 'RHF':
 				ImpEnergy, E_emb, RDM1 = solver.RHF()
+				print(ImpEnergy, E_emb) #debug
 			elif self.solver == 'UHF':
 				pass
 			elif self.solver == 'FCI':
@@ -176,7 +179,9 @@ class DMET:
 			self.E_fragments = np.asarray(self.E_fragments)[self.inverse_indices]
 		self.Nelec_fragments = np.asarray(self.Nelec_fragments)[self.inverse_indices]	
 		
-		return self.Nelec_fragments.sum()
+		multiplicty = 1.0
+		if self.symmetry == [0]: multiplicty = self.imp_size.size		
+		return self.Nelec_fragments.sum()*multiplicty
 
 	def one_shot(self):
 		'''
@@ -198,8 +203,11 @@ class DMET:
 			E_total = E_embedding + E_core + self.mf.energy_nuc()
 			self.Nelec_fragments = np.asarray(self.emb_1RDM[0]).trace() + self.E_fragments[2]		
 		else:
-			self.chempot = optimize.newton(self.nelecs_costfunction, self.chempot)		
-			E_total = self.E_fragments.sum() + self.mf.energy_nuc()
+			self.chempot = optimize.newton(self.nelecs_costfunction, self.chempot, tol = 1.e-10)
+			multiplicty = 1
+			if self.symmetry == [0]: multiplicty = self.imp_size.size
+			E_total = self.E_fragments.sum()*multiplicty + self.mf.energy_nuc()
+			print(E_total)
 		
 		return E_total
 			
@@ -236,6 +244,9 @@ class DMET:
 		return Nelec_dmet - Nelec_target	
 
 	def costfunction(self, uvec):
+		'''
+		Cost function: CF(u) = Sum_x (Sum_rs (corrD_x_rs(u) - mfD_x_rs(u))^2) = Sum_x (Sum_rs (rdm_diff_x_rs(u))^2)
+		'''
 		frags_error = []
 		rdm_diff = self.rdm_diff(uvec)
 		for fragment in range(self.irred_size):
@@ -244,45 +255,86 @@ class DMET:
 		frags_error = np.asarray(frags_error)[self.inverse_indices]		#Transform irreducible array to the full array
 		return frags_error.sum()
 		
-	def costfunction_derivative(self, uvec):
+	def costfunction_gradient(self, uvec):
+		'''
+		Analytical derivative of the cost function,
+		deriv(CF(u)) = Sum_x [Sum_rs (2 * rdm_diff_x_rs(u) * deriv(rdm_diff_x_rs(u))]
+		ref: ref: J. Chem. Theory Comput. 2016, 12, 2706−2719
+		'''
 		
-		pass
+		the_rdm_diff = self.rdm_diff(uvec)
+		the_rdm_diff_gradient = self.rdm_diff_gradient(uvec)
+		CF_gradient = np.zeros(self.Nterms)
+		
+		for u in range(self.Nterms):
+			frag_gradient = []
+			for fragment in range(self.irred_size):
+				gradient = np.sum(2 * the_rdm_diff[fragment] * the_rdm_diff_gradient[u][fragment])
+				frag_gradient.append(gradient)
+			frag_gradient = np.asarray(frag_gradient)[self.inverse_indices]		#Transform irreducible array to the full array
+			CF_gradient[u] = frag_gradient.sum()
+		
+		return CF_gradient
+		
 		
 	def rdm_diff(self, uvec):
 		'''
 		Calculating the different between mf-1RDM (transformed in Smith basis) and correlated-1RDM for each
-		embedding problem (each fragment)
+		embedding problem (each fragment), or rdm_diff_x_rs(u) in self.costfunction()
 		Args:
-			umat		: the correlation potential matrix
+			uvec		: the correlation potential vector
 		Return:
-			the_errors	: a list with the size of the number of irreducible fragment, each element is a numpy array of 
+			the_rdm_diff	: a list with the size of the number of irreducible fragment, each element is a numpy array of 
 						  errors for each fragment.
 		'''
 		
 		orthoOED = self.orthobasis.construct_orthoOED(self.uvec2umat(uvec), self.OEH_type)[1]
-		the_errors = []
+		the_rdm_diff = []
 		
 		for fragment in range(self.irred_size):
-			mf_1RDM = reduce(np.dot, (self.emb_orbs[fragment].T, orthoOED, self.emb_orbs[fragment]))
-			corr_1RDM = self.emb_1RDM[fragment]	
-			
+			transform_mat = self.emb_orbs[fragment]			#Smith basis transformation matrix
 			if self.SC_CFtype == 'FB' or self.SC_CFtype == 'diagFB':
-				mf_1RDM = reduce(np.dot, (self.emb_orbs[fragment].T, orthoOED, self.emb_orbs[fragment]))
+				mf_1RDM = reduce(np.dot, (transform_mat.T, orthoOED, transform_mat))
 				corr_1RDM = self.emb_1RDM[fragment]				
 				if self.SC_CFtype == 'FB': error = mf_1RDM - corr_1RDM
 				if self.SC_CFtype == 'diagFB': error = np.diag(mf_1RDM) - np.diag(corr_1RDM)	
 				
 			elif self.SC_CFtype == 'F' or self.SC_CFtype == 'diagF':
-				mf_1RDM = reduce(np.dot, (self.emb_orbs[fragment][:, :self.imp_size[fragment]].T, orthoOED, self.emb_orbs[fragment][:, :self.imp_size[fragment]]))
+				mf_1RDM = reduce(np.dot, (transform_mat[:,:self.imp_size[fragment]].T, orthoOED, transform_mat[:,:self.imp_size[fragment]]))
 				corr_1RDM = self.emb_1RDM[fragment][:self.imp_size[fragment], :self.imp_size[fragment]]			
 				if self.SC_CFtype == 'F': error = mf_1RDM - corr_1RDM
 				if self.SC_CFtype == 'diagF': error = np.diag(mf_1RDM) - np.diag(corr_1RDM)	
-			the_errors.append(error)
-		return the_errors
+			the_rdm_diff.append(error)
+		return the_rdm_diff
 
-	def rdm_diff_derivative(self, uvec):
-		pass
-				
+	def rdm_diff_gradient(self, uvec):
+		'''
+		Compute the rdm_diff gradient
+		Args:
+			uvec			: the correlation potential vector
+		Return:
+			the_gradient	: a list with the size of the number of u values in uvec, each element is a list with the size of the number
+							 of irreducible fragment. Each element of this list is a numpy array of derivative corresponding to each rs.
+							 
+		'''
+		
+		RDM_deriv = self.construct_1RDM_response(uvec)
+		
+		the_gradient = []
+		for u in range(self.Nterms):
+			frag_gradient = []
+			for fragment in range(self.irred_size):
+				transform_mat = self.emb_orbs[fragment]			#Smith basis transformation matrix
+				if self.SC_CFtype == 'FB' or self.SC_CFtype == 'diagFB':
+					error_deriv_smith = reduce(np.dot, (transform_mat.T, RDM_deriv[u,:,:], transform_mat))				
+					if self.SC_CFtype == 'diagFB': error_deriv_smith = np.diag(error_deriv_smith)	
+					
+				elif self.SC_CFtype == 'F' or self.SC_CFtype == 'diagF':
+					error_deriv_smith = reduce(np.dot, (transform_mat[:,:self.imp_size[fragment]].T, RDM_deriv[u,:,:], transform_mat[:,:self.imp_size[fragment]]))	
+					if self.SC_CFtype == 'diagF': error_deriv_smith = np.diag(error_deriv_smith)
+				frag_gradient.append(error_deriv_smith)
+			the_gradient.append(frag_gradient)
+		return the_gradient
 
 ######################################## USEFUL FUNCTION for DMEG class ######################################## 
 		
@@ -417,5 +469,5 @@ class DMET:
 		Calculate the derivative of 1RDM
 		'''
 		orthoFOCK = self.orthobasis.orthoFOCK + self.uvec2umat(uvec)
-		rdm_deriv_rot = libdmet.rhf_response(self.Norbs, self.Nterms, self.numPairs, self.H1start, self.H1row, self.H1col, orthoFOCK)
-		return rdm_deriv_rot
+		rdm_deriv = libdmet.rhf_response(self.Norbs, self.Nterms, self.numPairs, self.H1start, self.H1row, self.H1col, orthoFOCK)
+		return rdm_deriv

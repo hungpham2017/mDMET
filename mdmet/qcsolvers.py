@@ -15,10 +15,11 @@ from pyscf import gto, scf, ao2mo
 from pyscf.tools import rhf_newtonraphson
 
 class QCsolvers:
-	def __init__(self, OEI, TEI, JK, Norb, Nel, Nimp, chempot = 0.0):
+	def __init__(self, OEI, TEI, JK, DMguess, Norb, Nel, Nimp, chempot = 0.0):
 		self.OEI = OEI
 		self.TEI = TEI
 		self.FOCK = OEI + JK
+		self.DMguess = DMguess
 		self.Norb = Norb
 		self.Nel = Nel
 		self.Nimp = Nimp
@@ -35,19 +36,19 @@ class QCsolvers:
 				FOCK[orb, orb] -= self.chempot	
 		
 		mol = gto.Mole()
-		mol.build( verbose=0 )
+		mol.build(verbose = 0)
 		mol.atom.append(('C', (0, 0, 0)))
 		mol.nelectron = self.Nel
 		mol.incore_anyway = True
 		mf = scf.RHF( mol )
 		mf.get_hcore = lambda *args: FOCK
-		mf.get_ovlp = lambda *args: np.eye( self.Norb )
+		mf.get_ovlp = lambda *args: np.eye(self.Norb)
 		mf._eri = ao2mo.restore(8, self.TEI, self.Norb)
-		mf.scf( )
-		DMloc = np.dot(np.dot( mf.mo_coeff, np.diag( mf.mo_occ )), mf.mo_coeff.T )
+		mf.scf(self.DMguess)
+		DMloc = np.dot(np.dot(mf.mo_coeff, np.diag( mf.mo_occ )), mf.mo_coeff.T)
 		if ( mf.converged == False ):
-			mf = rhf_newtonraphson.solve( mf, dm_guess=DMloc )
-			DMloc = np.dot(np.dot( mf.mo_coeff, np.diag( mf.mo_occ )), mf.mo_coeff.T )
+			mf = rhf_newtonraphson.solve( mf, dm_guess=DMloc)
+			DMloc = np.dot(np.dot( mf.mo_coeff, np.diag(mf.mo_occ)), mf.mo_coeff.T)
 		
 		ERHF = mf.e_tot
 		RDM1 = mf.make_rdm1()

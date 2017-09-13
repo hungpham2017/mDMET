@@ -109,7 +109,11 @@ class RHF_decomposition:
 		isEmbedding_frag = np.dot(embeddingOrbs_frag.T , embeddingOrbs_frag) == 1
 		numEmbedOrbs_frag = np.sum(embeddingOrbs_frag, dtype = np.int32)
 		embedding1RDM_frag = np.reshape(OneDM[isEmbedding_frag], (numEmbedOrbs_frag, numEmbedOrbs_frag))
-		eigenvals_frag, eigenvecs_frag = np.linalg.eigh(embedding1RDM_frag)  	# 0 <= eigenvals <= 2				
+		eigenvals_frag, eigenvecs_frag = np.linalg.eigh(embedding1RDM_frag)  	# 0 <= eigenvals <= 2
+
+		#Debug:
+		#Whether one should reconstruct the the fragment orbitals?
+		if True: eigenvecs_frag = np.eye(eigenvecs_frag.shape[0],eigenvecs_frag.shape[0])
 		
 		#Fragment orbitals: stack columns with zeros in the end
 		#Embedding orbitals: stack columns with zeros in the beginning	

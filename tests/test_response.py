@@ -121,7 +121,7 @@ def test_1rdm_response():
 	
 def test_make_H1():
 
-	#pDMET
+	#pyDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
@@ -143,7 +143,7 @@ def test_make_H1():
 	assert H1col.sum() == 0	
 	
 def test_1RDM_response():
-	#pDMET
+	#pyDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
@@ -166,3 +166,58 @@ def test_1RDM_response():
 	diff = np.abs((RDMderivs_QCDMET - RDMderivs_pDMET)).sum()
 	assert np.isclose(RDMderivs_QCDMET.size, RDMderivs_pDMET.size)
 	assert np.isclose(diff , 0)	
+	
+def test_1RDM_response():
+	#pyDMET
+	mol, mf, impClusters  = test_makemole1()
+	symmetry = [0]*5  #or 'Translation'
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET.one_shot()
+	
+	#QC-DMET
+	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
+	myInts.TI_OK = True
+	method = 'ED'
+	SCmethod = 'LSTSQ' #Don't do it self-consistently
+	TI = True
+	theDMET = qc_dmet.dmet( myInts, impClusters, TI, method, SCmethod )	
+	
+	
+	uvec_size = runDMET.uvec.size
+	uvec = np.random.rand(uvec_size)
+	umat = runDMET.uvec2umat(uvec)	
+	
+	RDMderivs_QCDMET = theDMET.helper.construct1RDM_response( False, umat, None )
+	RDMderivs_pDMET = runDMET.construct_1RDM_response(uvec)	
+	diff = np.abs((RDMderivs_QCDMET - RDMderivs_pDMET)).sum()
+	assert np.isclose(RDMderivs_QCDMET.size, RDMderivs_pDMET.size)
+	assert np.isclose(diff , 0)	
+	
+def test_costfunction():
+	#pyDMET
+	mol, mf, impClusters  = test_makemole1()
+	symmetry = None  #or [0]*5, takes longer time
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET.one_shot()
+	
+	#QC-DMET
+	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
+	myInts.TI_OK = False
+	method = 'RHF'
+	SCmethod = 'NONE' #Don't do it self-consistently
+	TI = False
+	theDMET = qc_dmet.dmet( myInts, impClusters, TI, method, SCmethod )	
+	theDMET.doselfconsistent()
+	
+	uvec_size = runDMET.uvec.size
+	uvec = np.zeros(uvec_size)
+	umat = runDMET.uvec2umat(uvec)
+	
+	CF_pyDMET = runDMET.costfunction(uvec)
+	CF_QCDMET = theDMET.costfunction(uvec)
+	CF_deriv_pyDMET = runDMET.costfunction_gradient(uvec)
+	CF_deriv_QCDMET = theDMET.costfunction_derivative(uvec)
+
+	assert np.isclose((CF_QCDMET - CF_pyDMET).sum(), 0)
+	assert np.isclose((CF_deriv_QCDMET - CF_deriv_pyDMET).sum(), 0)
+	

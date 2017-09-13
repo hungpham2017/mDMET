@@ -16,6 +16,8 @@ email: phamx494@umn.edu
 
 namespace py = pybind11; 
 
+//Analytical 1RDM derivative for Hamiltonian: H = H0 + H1, ref: J. Chem. Theory Comput. 2016, 12, 2706−2719
+
 py::array_t<double> rhf_response(const int Norb, const int Nterms, const int numPairs, py::array_t<int> inH1start, 
 			py::array_t<int> inH1row, py::array_t<int> inH1col, py::array_t<double> inH0)
 {

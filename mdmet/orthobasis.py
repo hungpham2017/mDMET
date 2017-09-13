@@ -93,7 +93,7 @@ class Orthobasis:
 		
 		
 		return (eigenvecs, orthoOED)
-
+		
 	def dmet_oei(self, FBEorbs, Norb_in_imp):
 		oei = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, self.orthoOEI, FBEorbs[:,:Norb_in_imp]))		
 		return oei
@@ -107,4 +107,4 @@ class Orthobasis:
 		J = np.einsum('pqrs,rs->pq', self.orthoTEI, core1RDM_ortho)
 		K = np.einsum('prqs,rs', self.orthoTEI, core1RDM_ortho)	
 		jk = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, J -0.5*K, FBEorbs[:,:Norb_in_imp]))		
-		return jk	
+		return jk
