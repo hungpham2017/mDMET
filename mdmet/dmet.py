@@ -43,6 +43,7 @@ class DMET:
 		
 		'''		
 		
+		# General initialized attributes 
 		self.mf = mf
 		self.Norbs = mf.mol.nao_nr()
 		self.Nelecs = mf.mol.nelectron
@@ -54,9 +55,9 @@ class DMET:
 		self.orthobasis = orthobasis.Orthobasis(mf, orthogonalize_method)
 		self.sd_type = smith_decomposition_method
 		self.OEH_type = OEH_type
-		self.solver = solver
 		self.single_embedding = False
-		
+
+		# Symmetry		
 		if symmetry == None:
 			self.symmetry = list(range(self.num_impCluster))
 		elif symmetry == 'Translation':
@@ -71,23 +72,41 @@ class DMET:
 		self.irred_fragments, self.inverse_indices = np.unique(self.symmetry, return_inverse=True)
 		self.irred_size = self.irred_fragments.size
 
-		self.embedding_solvers = self.num_impCluster*[solver]	#NOT available currently
-		
+		# QC Solver	
+		solver_list = ['RHF', 'CASCI', 'CASSCF', 'DMRG', 'CCSD']
+		if isinstance(solver, list):
+			assert len(solver) == self.num_impCluster
+			self.solver = solver
+			for fragment in self.irred_fragments:
+				assert self.solver[fragment] in solver_list		
+		else:
+			assert solver in solver_list
+			self.solver = [solver]*self.num_impCluster
+		self.CAS = [None]*self.num_impCluster	# (n,m) means n electron in m orbitals
+		self.CAS_MO = [None]*self.num_impCluster
+
+		# Self-consistent parameters	
 		self.SC_method = 'BFGS'
-		self.SC_threshold = 1e-6
-		self.SC_threshold =	50	
+		self.SC_threshold = 1e-5
+		self.SC_maxcycle =	200	
 		self.SC_CFtype = SC_CFtype
-		
+		self.SC_damping = 0.0
+
+		# Correlation/chemical potential
 		self.mask, self.redundant = self.make_mask()
 		self.H1start, self.H1row, self.H1col = self.make_H1()[1:4]	#Use in the calculation of 1RDM derivative 
 		self.uvec = self.make_uvec()
 		self.Nterms = self.uvec.size		
 		self.chempot = 0.0
-		
+
+		# DMET Output		
 		self.emb_1RDM = []	
 		self.emb_orbs = []		
 		self.fragment_energies = []
 		self.fragment_nelecs = []
+		
+		# Others
+		np.set_printoptions(precision=6)
 		
 	def kernel(self, chempot = 0.0, single_embedding = False):
 		'''
@@ -146,20 +165,21 @@ class DMET:
 			dmetCoreJK = self.orthobasis.dmet_corejk(FBEorbs, Norb_in_imp, core1RDM_ortho)
 			
 			#Solving the embedding problem with high level wfs
+			solver = self.solver[fragment]
+			print("    The irreducible fragment %2d solver: %s" % (fragment, solver) )			
 			DMguess = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, orthoOED[1], FBEorbs[:,:Norb_in_imp]))
-			solver = qcsolvers.QCsolvers(dmetOEI, dmetTEI, dmetCoreJK, DMguess, Norb_in_imp, Nelec_in_imp, numImpOrbs, chempot)
-			if self.solver == 'RHF':
-				ImpEnergy, E_emb, RDM1 = solver.RHF()
-				print(ImpEnergy, E_emb) #debug
-			elif self.solver == 'UHF':
+			qcsolver = qcsolvers.QCsolvers(dmetOEI, dmetTEI, dmetCoreJK, DMguess, Norb_in_imp, Nelec_in_imp, numImpOrbs, chempot)
+			if solver == 'RHF':
+				ImpEnergy, E_emb, RDM1 = qcsolver.RHF()
+			elif solver == 'UHF':
 				pass
-			elif self.solver == 'FCI':
+			elif solver == 'CASCI':
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = False)
+			elif solver == 'CASSCF':
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = True)			
+			elif solver == 'DMRG':
 				pass
-			elif self.solver == 'DMRG':
-				pass
-			elif self.solver == 'CASSCF':
-				pass
-			elif self.solver == 'CCSD':
+			elif solver == 'CCSD':
 				pass			
 				
 			#Collecting the energies/RDM1/no of electrons for each fragment
@@ -187,7 +207,8 @@ class DMET:
 		'''
 		Do one-shot DMET, only the chemical potential is optimized
 		'''
-
+		print("-- ONE-SHOT DMET CALCULATION : START --")
+		
 		if self.single_embedding == True:
 			assert len(self.impCluster) == 1		
 			Fragment_nelecs = self.kernel(chempot = 0.0, single_embedding = True)
@@ -200,46 +221,60 @@ class DMET:
 			print('-----Single-embedding energy decoposition-----')			
 			print('Embedding energy              : ' , E_embedding, ' a.u.') 
 			print('Pure/Core environment energy  : ' , E_core, ' a.u.') 
-			E_total = E_embedding + E_core + self.mf.energy_nuc()
+			Energy_total = E_embedding + E_core + self.mf.energy_nuc()
 			self.fragment_nelecs = np.asarray(self.emb_1RDM[0]).trace() + self.fragment_energies[2]		
 		else:
 			self.chempot = optimize.newton(self.nelecs_costfunction, self.chempot, tol = 1.e-10)
 			multiplicty = 1
 			if self.symmetry == [0]: multiplicty = self.imp_size.size
-			E_total = self.fragment_energies.sum()*multiplicty + self.mf.energy_nuc()
-			print(E_total)
+			Energy_total = self.fragment_energies.sum()*multiplicty + self.mf.energy_nuc()
 		
-		return E_total
+		print("Fragment energies: ", self.fragment_energies)
+		print("Fragment electrons: ", self.fragment_nelecs)	
+		print("Total energy: ", Energy_total)			
+		print("-- ONE-SHOT DMET CALCULATION : END --")
 			
 	def self_consistent(self):
 		'''
 		Do self-consistent DMET
-		'''			
-		iteration = 1
-		u_diff = 1.0
+		'''	
+		print("- SELF-CONSISTENT DMET CALCULATION : START -")
 		
-		while u_diff > convergence_threshold and iteration <= self.SC_maxcycle:
+		u_diff = 1.0
+		umat = np.zeros((self.Norbs, self.Norbs))
+		
+		for cycle in range(self.SC_maxcycle):
+			
+			umat_old = umat
+			
+			# Do one-shot with each uvec
 			self.one_shot()
 			print ("Chemical potential = ", self.chempot)
+
+			# Optimize uvec
+			if self.SC_method == 'BFGS':
+				result = optimize.minimize(self.costfunction, self.uvec, method='BFGS', jac=self.costfunction_gradient, options={'disp': False})
+			elif self.SC_method == 'CG':
+				result = optimize.minimize(self.costfunction, self.uvec, method='CG', jac = self.costfunction_gradient, options={'disp': False})
+			else:
+				print(self.SC_method, " is not supported")
+			umat = self.uvec2umat(result.x)
+			u_diff = np.linalg.norm(umat_old - umat)
+			umat = self.SC_damping*umat_old + (1.0 - self.SC_damping)*umat
+			print("2-norm of difference old and new u-mat: ", u_diff ) 
+			if u_diff <= self.SC_threshold: break
 			
-			method = ['CG', 'SLSQP', 'BFGS', 'L-BFGS-B']
-			if self.SC_method in method:
-				pass
-				#result = optimize.minimize(self.costfunction, self.umat, jac=self.costfunction_derivative, options={'disp': False})
-			elif self.SC_method == 'LSTSQ':
-				#result = optimize.leastsq( self.rdm_differences, self.umat, Dfun=self.rdm_differences_derivative, factor=0.1 )
-				pass
-			
-			iteration += 1
+		print("")
+		print("--- SELF-CONSISTENT DMET CALCULATION : END ---")
 		
 	def nelecs_costfunction(self, chempot):
 		'''
-		The different in the correct number of electrons (provided) and the one calculated
+		The different in the correct number of electrons (provided) and the calculated one 
 		'''
 		
 		Nelec_dmet = self.kernel(chempot)
 		Nelec_target = self.Nelecs			
-		print ("Chemical potential , number of electrons = " , chempot, "," , Nelec_dmet ,"")
+		print ("   Chemical potential , number of electrons = " , chempot, "," , Nelec_dmet ,"")
 
 		return Nelec_dmet - Nelec_target	
 
@@ -361,7 +396,7 @@ class DMET:
 
 	def uvec2umat(self, uvec):
 		'''
-		Convert uvec to the umat which is used to vary the one-electron Hamiltonian
+		Convert uvec to the umat which is will be added up to the one-electron Hamiltonian
 		'''	
 		umat = np.zeros((self.Norbs, self.Norbs))
 		umat[self.mask] = uvec

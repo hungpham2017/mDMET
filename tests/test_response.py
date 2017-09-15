@@ -210,7 +210,7 @@ def test_costfunction():
 	theDMET.doselfconsistent()
 	
 	uvec_size = runDMET.uvec.size
-	uvec = np.zeros(uvec_size)
+	uvec = np.random.rand(uvec_size)
 	umat = runDMET.uvec2umat(uvec)
 	
 	CF_pyDMET = runDMET.costfunction(uvec)
