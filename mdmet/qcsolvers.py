@@ -93,6 +93,7 @@ class QCsolvers:
 		Orbital_optimization = True  : CASSCF
 		'''		
 		
+		Norb = self.Norb
 		Nimp = self.Nimp
 		FOCK = self.FOCK.copy()
 		
@@ -107,53 +108,54 @@ class QCsolvers:
 		mol.incore_anyway = True
 		mf = scf.RHF( mol )
 		mf.get_hcore = lambda *args: FOCK
-		mf.get_ovlp = lambda *args: np.eye(self.Norb)
-		mf._eri = ao2mo.restore(8, self.TEI, self.Norb)
+		mf.get_ovlp = lambda *args: np.eye(Norb)
+		mf._eri = ao2mo.restore(8, self.TEI, Norb)
 		mf.scf(self.DMguess)
 		DMloc = np.dot(np.dot(mf.mo_coeff, np.diag(mf.mo_occ)), mf.mo_coeff.T)
 		if ( mf.converged == False ):
 			mf = rhf_newtonraphson.solve( mf, dm_guess=DMloc)
 			DMloc = np.dot(np.dot(mf.mo_coeff, np.diag(mf.mo_occ)), mf.mo_coeff.T)
 		if CAS == None:
-			Nelec = self.Nel
-			Norb = self.Norb
+			CAS_nelec = self.Nel
+			CAS_norb = Norb
+			CAS = 'full'
 		else:
-			Nelec = CAS[0]
-			Norb = CAS[1]
-		print("     CASSCF active space: ", CAS)
+			CAS_nelec = CAS[0]
+			CAS_norb = CAS[1]
+		print("     Active space: ", CAS)
 		
 		if Orbital_optimization == True: 
-			mc = mcscf.CASSCF(mf, Norb, Nelec)	
+			mc = mcscf.CASSCF(mf, CAS_norb, CAS_nelec)	
 		else:
-			mc = mcscf.CASCI(mf, Norb, Nelec)
+			mc = mcscf.CASCI(mf, CAS_norb, CAS_nelec)
 		if CAS_MO is not None: 
-			print("---- Impurity active space selection: ", CAS_MO)
+			print("     Active space MOs: ", CAS_MO)
 			mo = mc.sort_mo(CAS_MO)
 			ECASSCF = mc.kernel(mo)[0]
 		else:
 			ECASSCF = mc.kernel()[0]	
 		
 		###### Get RDM1 + RDM2 #####
-		Norbcas = mc.ncas
-		Norbcore = mc.ncore
-		Nelcas = mc.nelecas	
-		mocore = mc.mo_coeff[:,:Norbcore]
-		mocas = mc.mo_coeff[:,Norbcore:Norbcore+Norbcas]
+		CAS_norb = mc.ncas
+		core_norb = mc.ncore
+		CAS_nelec = mc.nelecas	
+		core_MO = mc.mo_coeff[:,:core_norb]
+		CAS_MO = mc.mo_coeff[:,core_norb:core_norb+CAS_norb]
 
 	
-		casdm1 = mc.fcisolver.make_rdm1(mc.ci, Norbcas, Nelcas) #in CAS space
+		casdm1 = mc.fcisolver.make_rdm1(mc.ci, CAS_norb, CAS_nelec) #in CAS space
 		# Transform the casdm1 (in CAS space) to casdm1ortho (orthonormal space).     
-		casdm1ortho = np.einsum('ap,pq->aq', mocas, casdm1)
-		casdm1ortho = np.einsum('bq,aq->ab', mocas, casdm1ortho)
-		coredm1 = np.dot(mocore, mocore.T) * 2 #in localized space
+		casdm1ortho = np.einsum('ap,pq->aq', CAS_MO, casdm1)
+		casdm1ortho = np.einsum('bq,aq->ab', CAS_MO, casdm1ortho)
+		coredm1 = np.dot(core_MO, core_MO.T) * 2 #in localized space
 		RDM1 = coredm1 + casdm1ortho	
 
-		casdm2 = mc.fcisolver.make_rdm2(mc.ci,Norbcas,Nelcas) #in CAS space
+		casdm2 = mc.fcisolver.make_rdm2(mc.ci, CAS_norb, CAS_nelec) #in CAS space
 		# Transform the casdm2 (in CAS space) to casdm2ortho (orthonormal space). 
-		casdm2ortho = np.einsum('ap,pqrs->aqrs', mocas, casdm2)
-		casdm2ortho = np.einsum('bq,aqrs->abrs', mocas, casdm2ortho)
-		casdm2ortho = np.einsum('cr,abrs->abcs', mocas, casdm2ortho)
-		casdm2ortho = np.einsum('ds,abcs->abcd', mocas, casdm2ortho)	
+		casdm2ortho = np.einsum('ap,pqrs->aqrs', CAS_MO, casdm2)
+		casdm2ortho = np.einsum('bq,aqrs->abrs', CAS_MO, casdm2ortho)
+		casdm2ortho = np.einsum('cr,abrs->abcs', CAS_MO, casdm2ortho)
+		casdm2ortho = np.einsum('ds,abcs->abcd', CAS_MO, casdm2ortho)	
 	
 		coredm2 = np.zeros([Norb, Norb, Norb, Norb]) #in AO
 		coredm2 += np.einsum('pq,rs-> pqrs',coredm1,coredm1)

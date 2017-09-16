@@ -121,7 +121,7 @@ def test_1rdm_response():
 	
 def test_make_H1():
 
-	#pyDMET
+	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
@@ -143,7 +143,7 @@ def test_make_H1():
 	assert H1col.sum() == 0	
 	
 def test_1RDM_response():
-	#pyDMET
+	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
@@ -168,7 +168,7 @@ def test_1RDM_response():
 	assert np.isclose(diff , 0)	
 	
 def test_1RDM_response():
-	#pyDMET
+	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
@@ -194,7 +194,7 @@ def test_1RDM_response():
 	assert np.isclose(diff , 0)	
 	
 def test_costfunction():
-	#pyDMET
+	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = None  #or [0]*5, takes longer time
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
@@ -213,11 +213,11 @@ def test_costfunction():
 	uvec = np.random.rand(uvec_size)
 	umat = runDMET.uvec2umat(uvec)
 	
-	CF_pyDMET = runDMET.costfunction(uvec)
+	CF_pmDMET = runDMET.costfunction(uvec)
 	CF_QCDMET = theDMET.costfunction(uvec)
-	CF_deriv_pyDMET = runDMET.costfunction_gradient(uvec)
+	CF_deriv_pmDMET = runDMET.costfunction_gradient(uvec)
 	CF_deriv_QCDMET = theDMET.costfunction_derivative(uvec)
 
-	assert np.isclose((CF_QCDMET - CF_pyDMET).sum(), 0)
-	assert np.isclose((CF_deriv_QCDMET - CF_deriv_pyDMET).sum(), 0)
+	assert np.isclose((CF_QCDMET - CF_pmDMET).sum(), 0)
+	assert np.isclose((CF_deriv_QCDMET - CF_deriv_pmDMET).sum(), 0)
 	

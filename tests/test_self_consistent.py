@@ -27,7 +27,7 @@ def test_makemole1():
 		theta = i * (2*np.pi/nat)
 		mol.atom.append(('H', (r*np.cos(theta), r*np.sin(theta), 0)))
 
-	mol.basis = '3-21g'
+	mol.basis = 'sto-6g'
 	mol.build(verbose=0)
 
 	mf = scf.RHF(mol)
@@ -48,63 +48,38 @@ def test_makemole1():
 
 def test_makemole2():
 	bondlength = 1.0
-	nat = 10
-	mol = gto.Mole()
-	mol.atom = []
-	r = 0.5 * bondlength / np.sin(np.pi/nat)
-	for i in range(nat):
-		theta = i * (2*np.pi/nat)
-		if i%3 == 0: 
-			element = 'He'
-		else:
-			element = 'Be'
-		mol.atom.append((element, (r*np.cos(theta), r*np.sin(theta), 0)))
-
-	mol.basis = 'sto-3g'
+	mol = gto.M(atom='He 0 0.5 0; He -0.5 0 0; Be 1 0 0; Be 2 0 0; He 3 0.5 0; He 3 -0.5 0', basis='sto-6g')
 	mol.build(verbose=0)
-
 	mf = scf.RHF(mol)
 	mf.scf()
-	atoms_per_imp = 2 # Impurity size = 1 atom
-	Norbs = mol.nao_nr()
-	assert ( nat % atoms_per_imp == 0 )
-
-	#Parition: (He-Be)-(BeHe)-(BeBe)-(HeBe)-(BeHe) = 6-6-10-6-6 orb
-	impClusters = []
-	for cluster in range(nat // atoms_per_imp):
-		if cluster == 2:
-			impurities = np.zeros([Norbs], dtype=int)
-			impurities[12:22] = 1
-		elif cluster == 3:
-			impurities = np.zeros([Norbs], dtype=int)
-			impurities[22:28] = 1	
-		elif cluster == 4:
-			impurities = np.zeros([Norbs], dtype=int)
-			impurities[28:34] = 1			
-		else:
-			impurities = np.zeros([Norbs], dtype=int)
-			impurities[(6*cluster):(6*(cluster+1))] = 1		
-		impClusters.append(impurities)
-	assert (sum(impClusters).sum() == Norbs)
-	return mol, mf, impClusters 
 	
+	unit_sizes = np.array([ 2, 5, 5, 2])
+	impClusters = []
+	for frag in range(4):
+		impurity_orbitals = np.zeros( [mol.nao_nr()], dtype = int)
+		start = unit_sizes[:frag].sum()
+		impurity_orbitals[start:(start + unit_sizes[frag])] = 1
+		impClusters.append(impurity_orbitals)	
+	return mol, mf, impClusters 
+
 def test_self_consistent():
-	#pyDMET
-	mol, mf, impClusters  = test_makemole1()
-	symmetry = 'Translation'  #or [0]*5, takes longer time
-	solverlist = 'CASSCF' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
+	#pmDMET
+	mol, mf, impClusters  = test_makemole2()
+	symmetry = None  #or [0]*5, takes longer time
+	solverlist = 'CASCI' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = solverlist)
+	#runDMET.CAS = [[4,4]]
 	time1 = time.time()
 	runDMET.self_consistent()
 	time2 = time.time()
-	time_pyDMET = time2 - time1
+	time_pmDMET = time2 - time1
 	
 	#QC-DMET	
 	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
-	myInts.TI_OK = True
-	method = 'CASSCF'
+	myInts.TI_OK = False
+	method = 'ED'
 	SCmethod = 'BFGS' #Don't do it self-consistently
-	TI = True
+	TI = False
 	theDMET = qc_dmet.dmet( myInts, impClusters, TI, method, SCmethod )	
 	theDMET.impCAS = (4,4)
 	time1 = time.time()
@@ -112,5 +87,4 @@ def test_self_consistent():
 	time2 = time.time()
 	time_QCDMET = time2 - time1	
 	
-	return time_pyDMET
-	
+	return runDMET.Energy_total, time_pmDMET, time_QCDMET	

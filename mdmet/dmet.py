@@ -104,6 +104,7 @@ class DMET:
 		self.emb_orbs = []		
 		self.fragment_energies = []
 		self.fragment_nelecs = []
+		self.Energy_total = None
 		
 		# Others
 		np.set_printoptions(precision=6)
@@ -166,7 +167,7 @@ class DMET:
 			
 			#Solving the embedding problem with high level wfs
 			solver = self.solver[fragment]
-			print("    The irreducible fragment %2d solver: %s" % (fragment, solver) )			
+			print("    Solving the irreducible fragment %2d [%2d eletrons in (%2d fragment + %2d bath )] by %s solver" % (fragment, Nelec_in_imp, numImpOrbs, numBathOrbs, solver))						
 			DMguess = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, orthoOED[1], FBEorbs[:,:Norb_in_imp]))
 			qcsolver = qcsolvers.QCsolvers(dmetOEI, dmetTEI, dmetCoreJK, DMguess, Norb_in_imp, Nelec_in_imp, numImpOrbs, chempot)
 			if solver == 'RHF':
@@ -229,11 +230,12 @@ class DMET:
 			if self.symmetry == [0]: multiplicty = self.imp_size.size
 			Energy_total = self.fragment_energies.sum()*multiplicty + self.mf.energy_nuc()
 		
+		self.Energy_total = Energy_total
 		print("Fragment energies: ", self.fragment_energies)
 		print("Fragment electrons: ", self.fragment_nelecs)	
 		print("Total energy: ", Energy_total)			
 		print("-- ONE-SHOT DMET CALCULATION : END --")
-			
+		print()			
 	def self_consistent(self):
 		'''
 		Do self-consistent DMET
@@ -245,6 +247,7 @@ class DMET:
 		
 		for cycle in range(self.SC_maxcycle):
 			
+			print("DMET cycle : ", cycle + 1)
 			umat_old = umat
 			
 			# Do one-shot with each uvec
@@ -259,12 +262,12 @@ class DMET:
 			else:
 				print(self.SC_method, " is not supported")
 			umat = self.uvec2umat(result.x)
+			umat = umat - np.eye(umat.shape[0])*np.average(np.diag(umat))
 			u_diff = np.linalg.norm(umat_old - umat)
 			umat = self.SC_damping*umat_old + (1.0 - self.SC_damping)*umat
 			print("2-norm of difference old and new u-mat: ", u_diff ) 
 			if u_diff <= self.SC_threshold: break
 			
-		print("")
 		print("--- SELF-CONSISTENT DMET CALCULATION : END ---")
 		
 	def nelecs_costfunction(self, chempot):

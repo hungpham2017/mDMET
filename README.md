@@ -8,7 +8,7 @@ Density matrix embedding theory for periodic/molecular systems
 - Using overlap matrix to do Smith decomposition
 - Using symmetry and multiple solvers
 - Single-embedding DMET (similar to CASCI=True in QC-DMET)
-- Quantum chemical solvers:RHF, CASCI, CASSCF
+- Quantum chemical solvers: RHF, CASCI, CASSCF
 
 ### 3. On progress:
 - Smith decomposition for a UHF wavefunction

@@ -112,7 +112,8 @@ def test_single_embedding():
 	symmetry = None
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'overlap', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.single_embedding = True
-	E_total = runDMET.one_shot()
+	runDMET.one_shot()
+	E_total = runDMET.Energy_total
 	Nelecs = runDMET.fragment_nelecs.sum()	
 
 	assert np.isclose(Nelecs, mol.nelectron)	
