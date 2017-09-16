@@ -1,4 +1,4 @@
-# pyDMET
+# pmDMET
 Density matrix embedding theory for periodic/molecular systems
 
 ## Overview:
