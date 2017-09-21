@@ -7,7 +7,7 @@ import pyscf
 from pyscf import gto, scf, ao2mo
 import numpy as np
 import pytest
-from mdmet import orthobasis, smithbasis, qcsolvers, dmet
+from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
 from functools import reduce
 import scipy as scipy
 sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
@@ -64,10 +64,10 @@ def test_makemole2():
 
 def test_self_consistent():
 	#pmDMET
-	mol, mf, impClusters  = test_makemole2()
+	mol, mf, impClusters  = test_makemole1()
 	symmetry = None  #or [0]*5, takes longer time
 	solverlist = 'CASCI' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = solverlist)
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = solverlist)
 	#runDMET.CAS = [[4,4]]
 	time1 = time.time()
 	runDMET.self_consistent()

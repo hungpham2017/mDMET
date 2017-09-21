@@ -7,7 +7,7 @@ import pyscf
 from pyscf import gto, scf, ao2mo
 import numpy as np
 import pytest
-from mdmet import orthobasis, smithbasis, qcsolvers, dmet
+from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
 from functools import reduce
 import scipy as scipy
 
@@ -85,7 +85,7 @@ def test_makemole2():
 def test_kernel():
 	mol, mf, impClusters  = test_makemole2()
 	symmetry = None
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	Nelecs = runDMET.kernel()
 	Etotal = runDMET.fragment_energies.sum()
 
@@ -96,7 +96,7 @@ def test_kernel():
 def test_one_shot_DMET():
 	mol, mf, impClusters  = test_makemole2()	
 	symmetry = [0, 1, 2, 3, 4]
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.embedding_symmetry = [0, 1, 2, 3, 4]
 	E_total = runDMET.one_shot()
 	Nelecs = runDMET.fragment_nelecs.sum()
@@ -110,7 +110,7 @@ def test_single_embedding():
 	mol, mf, impClusters  = test_makemole2()
 	impClusters = [impClusters[0]]
 	symmetry = None
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'overlap', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'overlap', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.single_embedding = True
 	runDMET.one_shot()
 	E_total = runDMET.Energy_total
@@ -122,7 +122,7 @@ def test_single_embedding():
 def test_rdm_diff():
 	mol, mf, impClusters  = test_makemole2()
 	symmetry = [0, 1, 2, 1, 0]
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.one_shot()
 	uvec_size = runDMET.uvec.size
 	umat1 = np.zeros(uvec_size)	

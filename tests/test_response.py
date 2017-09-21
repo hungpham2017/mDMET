@@ -9,7 +9,7 @@ import pyscf
 from pyscf import gto, scf, ao2mo
 import numpy as np
 import pytest
-from mdmet import orthobasis, smithbasis, qcsolvers, dmet
+from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
 from functools import reduce
 import scipy as scipy
 sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
@@ -93,7 +93,7 @@ def test_makemole2():
 def test_1rdm_response():
 	mol, mf, impClusters  = test_makemole1()
 	#symmetry = [0, 1, 2, 1, 0]
-	#runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	#runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	#runDMET.one_shot()
 	umat = np.zeros((mol.nao_nr(), mol.nao_nr()))	
 
@@ -124,7 +124,7 @@ def test_make_H1():
 	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	H1start, H1row, H1col = runDMET.make_H1()[1:]
 	
 	#QC-DMET
@@ -146,7 +146,7 @@ def test_1RDM_response():
 	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 
 	#QC-DMET
 	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
@@ -171,7 +171,7 @@ def test_1RDM_response():
 	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = [0]*5  #or 'Translation'
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.one_shot()
 	
 	#QC-DMET
@@ -197,7 +197,7 @@ def test_costfunction():
 	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = None  #or [0]*5, takes longer time
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.one_shot()
 	
 	#QC-DMET

@@ -11,12 +11,12 @@ import sys
 import numpy as np
 from scipy import optimize
 from functools import reduce
-from . import orthobasis, smithbasis, qcsolvers
+from . import orthobasis, schmidtbasis, qcsolvers
 sys.path.append('./lib/build')
 import libdmet
 
 class DMET:
-	def __init__(self, mf, impCluster, symmetry, orthogonalize_method = 'overlap', smith_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF'):
+	def __init__(self, mf, impCluster, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF'):
 		'''
 		Args:
 			mf 							: a rhf wave function from pyscf
@@ -24,7 +24,7 @@ class DMET:
 										  environment orbitals (not bath) labeled by 0.
 			symmetry					: either 'Translation' or a list of symmetry labels, fragments are symmetrically equivalent if they have the same label
 			orthogonalize_method 		: overlap/boys/lowdin/meta_lowdin
-			smith_decomposition_method	: OED/overlap
+			schmidt_decomposition_method	: OED/overlap
 			OEH_type					: One-electron Hamiltonian used in the bath construction, h = OEH + umat 
 			embedding_symmetry			: a list of integer numbers indicating how the fragments are relevant by symmetry,
 										  defaut: non-symmetry 
@@ -33,7 +33,7 @@ class DMET:
 			SCmethod					: CG/SLSQP/BFGS/L-BFGS-B/LSTSQ self-consistent iteration method, defaut: BFGS
 			SC_threshold				: convergence criteria for correlation potential, default: 1e-6
 			SC_maxcycle                 : maximum cycle for self-consistent iteration, default: 50
-			SC_CFtype					: FB/diagFB/F/diagF, cost function type, fitting 1RDM of the entire Smith basis (FB), diagonal FB (diagFB), 
+			SC_CFtype					: FB/diagFB/F/diagF, cost function type, fitting 1RDM of the entire schmidt basis (FB), diagonal FB (diagFB), 
 										  fragment (F), or diagonal elements of fragment only (diagF), default: FB
 			umat						: correlation potential
 			chempot						: global chemical potential
@@ -53,7 +53,7 @@ class DMET:
 		self.imp_size = self.make_imp_size()
 		
 		self.orthobasis = orthobasis.Orthobasis(mf, orthogonalize_method)
-		self.sd_type = smith_decomposition_method
+		self.sd_type = schmidt_decomposition_method
 		self.OEH_type = OEH_type
 		self.single_embedding = False
 
@@ -113,7 +113,7 @@ class DMET:
 		'''
 		This is the main kernel for DMET calculation.
 		It is solving the embedding problem for each fragment, then returning the total number of electrons 
-		and updating the smith orbitals and 1RDM for each fragment
+		and updating the schmidt orbitals and 1RDM for each fragment
 		Args:
 			chempot					: global chemical potential to adjust the numer of electrons in each fragment
 		Return:
@@ -134,9 +134,9 @@ class DMET:
 			impOrbs = np.abs(self.impCluster[fragment])
 			numImpOrbs  = np.sum(impOrbs)
 			numBathOrbs = numImpOrbs
-			smith = smithbasis.RHF_decomposition(self.mf, impOrbs, numBathOrbs, orthoOED)
-			smith.method = self.sd_type		
-			numBathOrbs, FBEorbs, envOrbs_or_core_eigenvals = smith.baths()
+			schmidt = schmidtbasis.RHF_decomposition(self.mf, impOrbs, numBathOrbs, orthoOED)
+			schmidt.method = self.sd_type		
+			numBathOrbs, FBEorbs, envOrbs_or_core_eigenvals = schmidt.baths()
 
 			
 			Norb_in_imp  = numImpOrbs + numBathOrbs
@@ -160,7 +160,7 @@ class DMET:
 				Nelec_in_environment = self.Nelecs - Nelec_in_imp
 				core1RDM_ortho = 2*np.dot(FBEorbs[:,Norb_in_imp:], FBEorbs[:,Norb_in_imp:].T)				
 				
-			#Transform the 1e/2e integrals and the JK core constribution to Smith basis
+			#Transform the 1e/2e integrals and the JK core constribution to schmidt basis
 			dmetOEI  = self.orthobasis.dmet_oei(FBEorbs, Norb_in_imp)
 			dmetTEI  = self.orthobasis.dmet_tei(FBEorbs, Norb_in_imp)			
 			dmetCoreJK = self.orthobasis.dmet_corejk(FBEorbs, Norb_in_imp, core1RDM_ortho)
@@ -317,7 +317,7 @@ class DMET:
 		
 	def rdm_diff(self, uvec):
 		'''
-		Calculating the different between mf-1RDM (transformed in Smith basis) and correlated-1RDM for each
+		Calculating the different between mf-1RDM (transformed in schmidt basis) and correlated-1RDM for each
 		embedding problem (each fragment), or rdm_diff_x_rs(u) in self.costfunction()
 		Args:
 			uvec		: the correlation potential vector
@@ -330,7 +330,7 @@ class DMET:
 		the_rdm_diff = []
 		
 		for fragment in range(self.irred_size):
-			transform_mat = self.emb_orbs[fragment]			#Smith basis transformation matrix
+			transform_mat = self.emb_orbs[fragment]			#schmidt basis transformation matrix
 			if self.SC_CFtype == 'FB' or self.SC_CFtype == 'diagFB':
 				mf_1RDM = reduce(np.dot, (transform_mat.T, orthoOED, transform_mat))
 				corr_1RDM = self.emb_1RDM[fragment]				
@@ -362,15 +362,15 @@ class DMET:
 		for u in range(self.Nterms):
 			frag_gradient = []
 			for fragment in range(self.irred_size):
-				transform_mat = self.emb_orbs[fragment]			#Smith basis transformation matrix
+				transform_mat = self.emb_orbs[fragment]			#schmidt basis transformation matrix
 				if self.SC_CFtype == 'FB' or self.SC_CFtype == 'diagFB':
-					error_deriv_smith = reduce(np.dot, (transform_mat.T, RDM_deriv[u,:,:], transform_mat))				
-					if self.SC_CFtype == 'diagFB': error_deriv_smith = np.diag(error_deriv_smith)	
+					error_deriv_schmidt = reduce(np.dot, (transform_mat.T, RDM_deriv[u,:,:], transform_mat))				
+					if self.SC_CFtype == 'diagFB': error_deriv_schmidt = np.diag(error_deriv_schmidt)	
 					
 				elif self.SC_CFtype == 'F' or self.SC_CFtype == 'diagF':
-					error_deriv_smith = reduce(np.dot, (transform_mat[:,:self.imp_size[fragment]].T, RDM_deriv[u,:,:], transform_mat[:,:self.imp_size[fragment]]))	
-					if self.SC_CFtype == 'diagF': error_deriv_smith = np.diag(error_deriv_smith)
-				frag_gradient.append(error_deriv_smith)
+					error_deriv_schmidt = reduce(np.dot, (transform_mat[:,:self.imp_size[fragment]].T, RDM_deriv[u,:,:], transform_mat[:,:self.imp_size[fragment]]))	
+					if self.SC_CFtype == 'diagF': error_deriv_schmidt = np.diag(error_deriv_schmidt)
+				frag_gradient.append(error_deriv_schmidt)
 			the_gradient.append(frag_gradient)
 		return the_gradient
 

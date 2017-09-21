@@ -1,5 +1,5 @@
 '''
-Testing the implementation of the smith decomposition class.
+Testing the implementation of the Schmidt decomposition class.
 '''
 
 import sys
@@ -7,7 +7,7 @@ import pyscf
 from pyscf import gto, scf, ao2mo
 import numpy as np
 import pytest
-from mdmet import orthobasis, smithbasis, qcsolvers
+from mdmet import orthobasis, schmidtbasis, qcsolvers
 from functools import reduce
 import scipy as scipy
 
@@ -42,9 +42,9 @@ def test_Etotal_newspace():
 	umat = np.zeros((mol.nao_nr(), mol.nao_nr()))
 	ortho = orthobasis.Orthobasis(mf, method = 'overlap')
 	orthoOED = ortho.construct_orthoOED(umat, OEH_type = 'FOCK')
-	smith = smithbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
-	smith.method = 'overlap'
-	BathOrbs, FBEorbs, envOrbs = smith.baths()
+	schmidt = smithbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
+	schmidt.method = 'overlap'
+	BathOrbs, FBEorbs, envOrbs = schmidt.baths()
 
 	OEIortho = ortho.orthoOEI
 	TEIortho = ortho.orthoTEI
@@ -90,13 +90,13 @@ def test_bathconstruction():
 	umat = np.zeros((mol.nao_nr(), mol.nao_nr()))
 	ortho = orthobasis.Orthobasis(mf, method = 'overlap')
 	orthoOED = ortho.construct_orthoOED(umat, OEH_type = 'FOCK')
-	smith = smithbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
+	schmidt = smithbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
 
-	smith.method = 'overlap'
-	BathOrbs1, FBEorbs1, envOrbs = smith.baths()
+	schmidt.method = 'overlap'
+	BathOrbs1, FBEorbs1, envOrbs = schmidt.baths()
 	
-	smith.method = 'OED'	
-	BathOrbs2, FBEorbs2, core_eigenvals = smith.baths()
+	schmidt.method = 'OED'	
+	BathOrbs2, FBEorbs2, core_eigenvals = schmidt.baths()
 	
 	OEIortho = ortho.orthoOEI
 	TEIortho = ortho.orthoTEI

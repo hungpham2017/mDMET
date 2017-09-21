@@ -1,1 +1,1 @@
-from . import orthobasis, smithbasis, qcsolvers, dmet
+from . import orthobasis, schmidtbasis, qcsolvers, dmet

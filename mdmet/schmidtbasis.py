@@ -22,7 +22,7 @@ class RHF_decomposition:
 		
 	def baths(self):
 		'''
-		This function is used to call the Smith basis using either an overlap matrix or 1-rdm (or OED)
+		This function is used to call the Schmidt basis using either an overlap matrix or 1-rdm (or OED)
 		'''
 		if self.method == 'OED':
 			return self.UsingOED(self.numBathOrbs, threshold = 1e-13)
