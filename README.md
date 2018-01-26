@@ -8,7 +8,7 @@ Multipurpose Density matrix embedding theory package for molecular/periodic/latt
 - Using overlap matrix to do Smith decomposition
 - Using symmetry and multiple solvers
 - Single-embedding DMET (similar to CASCI=True in QC-DMET)
-- Quantum chemical solvers: RHF, CASCI/CASSCF, DMRG-CASCI/DMRG-CASSCF
+- Multi-configurational solvers: RHF, CASCI/CASSCF, DMRG-CASCI/DMRG-CASSCF
 - Lattice Hamiltonian: 1D/2D Hamiltonian
 ### 3. On progress:
 - Smith decomposition for a UHF wavefunction
