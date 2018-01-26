@@ -8,10 +8,13 @@ from pyscf import gto, scf, dft, ao2mo
 import numpy as np
 import pytest
 from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
+from functools import reduce
 import scipy as scipy
 sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
 import localintegrals, qcdmet_paths
 import dmet as qc_dmet
+sys.path.append('./lib/build')
+import libdmet
 import time
 
 def test_makemole1():
@@ -64,7 +67,7 @@ def test_makemole2():
 	return mol, mf, impClusters 
 
 def test_self_consistent():
-	#mpDMET
+	#pmDMET
 	mol, mf, mydft, impClusters  = test_makemole1()
 	symmetry = None  #or [0]*5, takes longer time
 	solverlist = 'CASCI' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
@@ -74,7 +77,7 @@ def test_self_consistent():
 	time1 = time.time()
 	runDMET.self_consistent()
 	time2 = time.time()
-	time_mpDMET = time2 - time1
+	time_pmDMET = time2 - time1
 	
 	#QC-DMET	
 	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
@@ -89,18 +92,4 @@ def test_self_consistent():
 	time2 = time.time()
 	time_QCDMET = time2 - time1	
 	
-	return runDMET.Energy_total, time_mpDMET, time_QCDMET	
-	
-'''def test_canonical_self_consistent():
-	#mpDMET
-	mol, mf, impClusters  = test_makemole1()
-	symmetry = None  #or [0]*5, takes longer time
-	solverlist = 'RHF' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = solverlist)
-	#runDMET.CAS = [[4,4]]
-	time1 = time.time()
-	runDMET.canonical_self_consistent()
-	time2 = time.time()
-	time_mpDMET = time2 - time1
-	
-	return runDMET.Energy_total, time_mpDMET'''
+	return runDMET.Energy_total, time_pmDMET, time_QCDMET	

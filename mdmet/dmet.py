@@ -1,18 +1,18 @@
 '''
-Molecular Density Matrix Embedding theory
-ref: 
-J. Chem. Theory Comput. 2016, 12, 2706−2719
-PHYSICAL REVIEW B 89, 035140 (2014)
+Multipurpose Density Matrix Embedding theory (mp-DMET)
+Copyright (C) 2015 Hung Q. Pham
 Author: Hung Q. Pham, Unviversity of Minnesota
 email: phamx494@umn.edu
 '''
 
-import sys
+import os, sys
 import numpy as np
 from scipy import optimize
 from functools import reduce
-from . import orthobasis, schmidtbasis, qcsolvers
-sys.path.append('./lib/build')
+from mpdmet.mdmet import orthobasis, schmidtbasis, qcsolvers
+from pathlib import Path
+sys.path.append(os.getcwd().replace("/mpdmet", "/mpdmet/lib/build"))
+
 import libdmet
 
 class DMET:
@@ -69,11 +69,11 @@ class DMET:
 			assert len(symmetry) == self.num_impCluster
 			self.symmetry = symmetry
 	
-		self.irred_fragments, self.inverse_indices = np.unique(self.symmetry, return_inverse=True)
+		self.irred_fragments, self.inverse_indices, self.counts = np.unique(self.symmetry, return_inverse=True, return_counts=True)
 		self.irred_size = self.irred_fragments.size
 
 		# QC Solver	
-		solver_list = ['RHF', 'CASCI', 'CASSCF', 'DMRG', 'CCSD']
+		solver_list = ['RHF', 'CASCI', 'CASSCF', 'DMRG-CASCI-C', 'DMRG-CASSCF-C', 'DMRG-CASCI-B', 'DMRG-CASSCF-B', 'CCSD']
 		if isinstance(solver, list):
 			assert len(solver) == self.num_impCluster
 			self.solver = solver
@@ -85,10 +85,11 @@ class DMET:
 		self.CAS = [None]*self.num_impCluster	# (n,m) means n electron in m orbitals
 		self.CAS_MO = [None]*self.num_impCluster
 
-		# Self-consistent parameters	
+		# Self-consistent parameters
+		self.SC_canonical = False		
 		self.SC_method = 'BFGS'
-		self.SC_threshold = 1e-5
-		self.SC_maxcycle =	200	
+		self.SC_threshold = 1e-8
+		self.SC_maxcycle =	50	
 		self.SC_CFtype = SC_CFtype
 		self.SC_damping = 0.0
 
@@ -100,8 +101,11 @@ class DMET:
 		self.chempot = 0.0
 
 		# DMET Output		
-		self.emb_1RDM = []	
-		self.emb_orbs = []		
+		self.emb_1RDM = []
+		self.emb_canonical_1RDM = []
+		self.emb_core_1RDM = []	
+		self.emb_orbs = []
+		self.canonical_orthoOED = None			
 		self.fragment_energies = []
 		self.fragment_nelecs = []
 		self.Energy_total = None
@@ -126,10 +130,10 @@ class DMET:
 		self.fragment_energies = []
 		self.fragment_nelecs = []
 		self.emb_1RDM = []
+		self.emb_canonical_1RDM = []
 		self.emb_orbs = []
 		
 		orthoOED = self.orthobasis.construct_orthoOED(self.uvec2umat(self.uvec), self.OEH_type)		# get both MO coefficients and 1-RDM in orthonormal basis
-		
 		for fragment in self.irred_fragments:
 			impOrbs = np.abs(self.impCluster[fragment])
 			numImpOrbs  = np.sum(impOrbs)
@@ -153,7 +157,7 @@ class DMET:
 						print ("Bad DMET bath orbital selection: trying to put a bath orbital with occupation", envOrbs_or_core_eigenvals[cnt], "into the environment :-(.")
 						assert(0 == 1)	
 				Nelec_in_imp = int(round(self.Nelecs - np.sum(envOrbs_or_core_eigenvals)))
-				Nelec_in_environment = np.sum(np.abs(envOrbs_or_core_eigenvals))				
+				Nelec_in_environment = int(np.sum(np.abs(envOrbs_or_core_eigenvals)))				
 				core1RDM_ortho = reduce(np.dot, (FBEorbs, np.diag(envOrbs_or_core_eigenvals), FBEorbs.T))				
 			elif self.sd_type == 'overlap':
 				Nelec_in_imp = int(2*numImpOrbs)
@@ -177,9 +181,15 @@ class DMET:
 			elif solver == 'CASCI':
 				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = False)
 			elif solver == 'CASSCF':
-				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = True)			
-			elif solver == 'DMRG':
-				pass
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = False)		
+			elif solver == 'DMRG-CASCI-C':
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = False, solver = 'CheMPS2')
+			elif solver == 'DMRG-CASSCF-C':
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = True, solver = 'CheMPS2')			
+			elif solver == 'DMRG-CASCI-B':
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = False, solver = 'Block')
+			elif solver == 'DMRG-CASSCF-B':
+				ImpEnergy, E_emb, RDM1 = qcsolver.CAS(self.CAS[fragment], self.CAS_MO[fragment], Orbital_optimization = True, solver = 'Block')						
 			elif solver == 'CCSD':
 				pass			
 				
@@ -190,10 +200,24 @@ class DMET:
 			else:
 				self.fragment_energies.extend([E_emb, core1RDM_ortho, Nelec_in_environment])
 				
+			dmetCore1RDM = reduce(np.dot,(FBEorbs[:,:Norb_in_imp].T, core1RDM_ortho	, FBEorbs[:,:Norb_in_imp]))
 			self.emb_1RDM.append(RDM1)
+			self.emb_core_1RDM.append(dmetCore1RDM)
 			self.emb_orbs.append(FBEorbs[:,:Norb_in_imp])
 			ImpNelecs = np.trace(RDM1[:numImpOrbs,:numImpOrbs])
 			self.fragment_nelecs.append(ImpNelecs)
+			
+			if self.SC_canonical == True:
+				dmetJ = np.einsum('pqrs,rs->pq', dmetTEI, RDM1) 
+				dmetK = np.einsum('prqs,rs->pq', dmetTEI, RDM1) 
+				dmetFOCK = dmetOEI + dmetCoreJK + dmetJ - 0.5*dmetK
+				eigenvals, eigenvecs = np.linalg.eigh(dmetFOCK)
+				idx = eigenvals.argsort()
+				eigenvals = eigenvals[idx]
+				eigenvecs = eigenvecs[:,idx]
+				nelec_pairs = Nelec_in_imp // 2 
+				canonical_RDM1 = 2 * np.dot(eigenvecs[:,:nelec_pairs], eigenvecs[:,:nelec_pairs].T)
+				self.emb_canonical_1RDM.append(canonical_RDM1)
 		
 		#Transform the irreducible energy/electron lists to the corresponding full lists
 		if single_embedding == False:
@@ -225,15 +249,22 @@ class DMET:
 			Energy_total = E_embedding + E_core + self.mf.energy_nuc()
 			self.fragment_nelecs = np.asarray(self.emb_1RDM[0]).trace() + self.fragment_energies[2]		
 		else:
-			self.chempot = optimize.newton(self.nelecs_costfunction, self.chempot, tol = 1.e-10)
-			multiplicty = 1
-			if self.symmetry == [0]: multiplicty = self.imp_size.size
+			if self.symmetry == [0]:			#Translational symemtry is used 				
+				multiplicty = self.imp_size.size
+			else:
+				multiplicty = 1.0	
+				
+				
+			self.chempot = optimize.newton(self.nelecs_costfunction, self.chempot)				
+			#result = optimize.minimize(self.nelecs_costfunction, self.chempot, method='CG', jac = None, options={'disp': False})
+			#self.chempot = result.x
+				
 			Energy_total = self.fragment_energies.sum()*multiplicty + self.mf.energy_nuc()
 		
 		self.Energy_total = Energy_total
-		print("Fragment energies: ", self.fragment_energies)
-		print("Fragment electrons: ", self.fragment_nelecs)	
-		print("Total energy: ", Energy_total)			
+		print(" Fragment energies: ", self.fragment_energies)
+		print(" Fragment electrons: ", self.fragment_nelecs)	
+		print(" Total energy: ", Energy_total)			
 		print("-- ONE-SHOT DMET CALCULATION : END --")
 		print()			
 	def self_consistent(self):
@@ -252,7 +283,7 @@ class DMET:
 			
 			# Do one-shot with each uvec
 			self.one_shot()
-			print ("Chemical potential = ", self.chempot)
+			print (" Chemical potential = ", self.chempot)
 
 			# Optimize uvec
 			if self.SC_method == 'BFGS':
@@ -261,14 +292,63 @@ class DMET:
 				result = optimize.minimize(self.costfunction, self.uvec, method='CG', jac = self.costfunction_gradient, options={'disp': False})
 			else:
 				print(self.SC_method, " is not supported")
-			umat = self.uvec2umat(result.x)
+			self.uvec = result.x	
+			umat = self.uvec2umat(self.uvec)
 			umat = umat - np.eye(umat.shape[0])*np.average(np.diag(umat))
 			u_diff = np.linalg.norm(umat_old - umat)
-			umat = self.SC_damping*umat_old + (1.0 - self.SC_damping)*umat
-			print("2-norm of difference old and new u-mat: ", u_diff ) 
+			umat = self.SC_damping*umat_old + (1.0 - self.SC_damping)*umat #Can be eliminated
+			print(" 2-norm of difference old and new u-mat: ", u_diff)
+			print("Correlation potential vector: ", self.uvec)
 			if u_diff <= self.SC_threshold: break
 			
 		print("--- SELF-CONSISTENT DMET CALCULATION : END ---")
+		
+	def canonical_self_consistent(self):
+		'''
+		Do canonical self-consistent DMET
+		TODO: under development
+		'''	
+		print("- CANONICAL SELF-CONSISTENT DMET CALCULATION : START -")
+		self.SC_canonical = True
+		self.canonical_orthoOED = self.orthobasis.construct_orthoOED(self.uvec2umat(self.uvec), self.OEH_type)
+		rdm1 = self.canonical_orthoOED[1]
+		
+		for cycle in range(self.SC_maxcycle):
+			
+			print("DMET cycle : ", cycle + 1)
+			rdm1_old = rdm1
+			
+			# Do one-shot with each uvec
+			self.one_shot()
+			print ("Chemical potential = ", self.chempot)
+
+			# Compute the total 1RDM from the fragment 1RDM in a democratic manner
+			the_total_1RDM = np.zeros((self.Norbs, self.Norbs))
+			for fragment in range(self.irred_size):
+				transform_mat = self.emb_orbs[fragment][:,:self.imp_size[fragment]]
+				dmet_frag_can_RDM1 = self.emb_canonical_1RDM[fragment][:self.imp_size[fragment],:self.imp_size[fragment]]
+				ortho_frag_RDM1 = reduce(np.dot, (transform_mat, dmet_frag_can_RDM1, transform_mat.T))
+				the_total_1RDM += self.counts[fragment]*ortho_frag_RDM1
+				
+			# Construct new canonical orthoOED
+			J = np.einsum('pqrs,rs->pq', self.orthobasis.orthoTEI, the_total_1RDM) 
+			K = np.einsum('prqs,rs->pq', self.orthobasis.orthoTEI, the_total_1RDM) 
+			FOCK = self.orthobasis.orthoOEI + J - 0.5*K
+			eigenvals, eigenvecs = np.linalg.eigh(FOCK)
+			idx = eigenvals.argsort()
+			eigenvals = eigenvals[idx]
+			eigenvecs = eigenvecs[:,idx]
+			nelec_pairs = self.Nelecs // 2
+			canonical_RDM1 = 2 * np.dot(eigenvecs[:,:nelec_pairs], eigenvecs[:,:nelec_pairs].T)
+		
+			rdm1 = canonical_RDM1
+			self.canonical_orthoOED = (eigenvecs, canonical_RDM1)  
+			
+			rdm1_diff = np.linalg.norm(rdm1_old - rdm1)
+			print("2-norm of difference old and new 1RDM: ", rdm1_diff) 
+			if rdm1_diff <= self.SC_threshold: break
+			
+		print("- CANONICAL SELF-CONSISTENT DMET CALCULATION : END -")		
 		
 	def nelecs_costfunction(self, chempot):
 		'''
@@ -333,13 +413,19 @@ class DMET:
 			transform_mat = self.emb_orbs[fragment]			#schmidt basis transformation matrix
 			if self.SC_CFtype == 'FB' or self.SC_CFtype == 'diagFB':
 				mf_1RDM = reduce(np.dot, (transform_mat.T, orthoOED, transform_mat))
-				corr_1RDM = self.emb_1RDM[fragment]				
+				if self.SC_canonical == True:
+					corr_1RDM = self.emb_canonical_1RDM[fragment]
+				else:
+					corr_1RDM = self.emb_1RDM[fragment]
 				if self.SC_CFtype == 'FB': error = mf_1RDM - corr_1RDM
 				if self.SC_CFtype == 'diagFB': error = np.diag(mf_1RDM) - np.diag(corr_1RDM)	
 				
 			elif self.SC_CFtype == 'F' or self.SC_CFtype == 'diagF':
 				mf_1RDM = reduce(np.dot, (transform_mat[:,:self.imp_size[fragment]].T, orthoOED, transform_mat[:,:self.imp_size[fragment]]))
-				corr_1RDM = self.emb_1RDM[fragment][:self.imp_size[fragment], :self.imp_size[fragment]]			
+				if self.SC_canonical == True:
+					corr_1RDM = self.emb_canonical_1RDM[fragment][:self.imp_size[fragment],:self.imp_size[fragment]]
+				else:
+					corr_1RDM = self.emb_1RDM[fragment][:self.imp_size[fragment],:self.imp_size[fragment]]		
 				if self.SC_CFtype == 'F': error = mf_1RDM - corr_1RDM
 				if self.SC_CFtype == 'diagF': error = np.diag(mf_1RDM) - np.diag(corr_1RDM)	
 			the_rdm_diff.append(error)

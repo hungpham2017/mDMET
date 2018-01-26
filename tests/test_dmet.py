@@ -2,14 +2,11 @@
 Testing the implementation of the DMET class.
 '''
 
-import sys
 import pyscf
 from pyscf import gto, scf, ao2mo
 import numpy as np
 import pytest
 from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
-from functools import reduce
-import scipy as scipy
 
 def test_makemole1():
 	bondlength = 1.0

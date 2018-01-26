@@ -1,21 +1,26 @@
 '''
-Testing the self_consistent DMET
+Multipurpose Density Matrix Embedding theory (mp-DMET)
+Copyright (C) 2015 Hung Q. Pham
+Author: Hung Q. Pham, Unviversity of Minnesota
+email: phamx494@umn.edu
 '''
 
 import sys
 import pyscf
 from pyscf import gto, scf, dft, ao2mo
 import numpy as np
-import pytest
 from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
+from functools import reduce
 import scipy as scipy
 sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
 import localintegrals, qcdmet_paths
 import dmet as qc_dmet
+sys.path.append('./lib/build')
+import libdmet
 import time
 
-def test_makemole1():
-	bondlength = 1.0
+def test_makemole(bond):
+	bondlength = bond
 	nat = 10
 	mol = gto.Mole()
 	mol.atom = []
@@ -29,9 +34,6 @@ def test_makemole1():
 
 	mf = scf.RHF(mol)
 	mf.scf()
-	mydft = dft.RKS(mol)
-	mydft.xc = 'b3lyp'
-	mydft.kernel()
 
 	atoms_per_imp = 2 # Impurity size = 1 atom
 	Norbs = mol.nao_nr()
@@ -45,7 +47,7 @@ def test_makemole1():
 			impurities[orbs_per_imp*cluster + orb] = 1
 		impClusters.append(impurities)
 
-	return mol, mf, mydft, impClusters 
+	return mol, mf, impClusters 
 
 def test_makemole2():
 	bondlength = 1.0
@@ -63,20 +65,19 @@ def test_makemole2():
 		impClusters.append(impurity_orbitals)	
 	return mol, mf, impClusters 
 
-def test_self_consistent():
-	#mpDMET
-	mol, mf, mydft, impClusters  = test_makemole1()
-	symmetry = None  #or [0]*5, takes longer time
+for bond in np.arange(0.8, 2.0, 0.2): 
+	mol, mf, impClusters  = test_makemole(bond)
+	symmetry = 'Translation'  #or [0]*5, takes longer time
 	solverlist = 'CASCI' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
 	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'F', solver = solverlist)
 	#runDMET.CAS = [[4,4]]
-	runDMET.SC_canonical = True
 	time1 = time.time()
 	runDMET.self_consistent()
 	time2 = time.time()
 	time_mpDMET = time2 - time1
+	print('Total energy + Time:', runDMET.Energy_total, time_mpDMET)
 	
-	#QC-DMET	
+	'''#QC-DMET	
 	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
 	myInts.TI_OK = False
 	method = 'CASSCF'
@@ -87,20 +88,4 @@ def test_self_consistent():
 	time1 = time.time()
 	theDMET.doselfconsistent()
 	time2 = time.time()
-	time_QCDMET = time2 - time1	
-	
-	return runDMET.Energy_total, time_mpDMET, time_QCDMET	
-	
-'''def test_canonical_self_consistent():
-	#mpDMET
-	mol, mf, impClusters  = test_makemole1()
-	symmetry = None  #or [0]*5, takes longer time
-	solverlist = 'RHF' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = solverlist)
-	#runDMET.CAS = [[4,4]]
-	time1 = time.time()
-	runDMET.canonical_self_consistent()
-	time2 = time.time()
-	time_mpDMET = time2 - time1
-	
-	return runDMET.Energy_total, time_mpDMET'''
+	time_QCDMET = time2 - time1'''	

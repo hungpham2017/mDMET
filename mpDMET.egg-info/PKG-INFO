@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: mpDMET
+Version: 0.1
+Summary: Multipurpose Density matrix embedding theory package
+Home-page: https://github.com/hungpham2017/mpdmet.git
+Author: Hung Pham
+Author-email: phamx494@umn.edu
+License: BSD-3C
+Description-Content-Type: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3

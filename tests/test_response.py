@@ -6,12 +6,11 @@ email: phamx494@umn.edu
 
 import sys
 import pyscf
-from pyscf import gto, scf, ao2mo
+from pyscf import gto, scf
 import numpy as np
 import pytest
 from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
 from functools import reduce
-import scipy as scipy
 sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
 import localintegrals, qcdmet_paths
 import dmet as qc_dmet
@@ -167,37 +166,11 @@ def test_1RDM_response():
 	assert np.isclose(RDMderivs_QCDMET.size, RDMderivs_pDMET.size)
 	assert np.isclose(diff , 0)	
 	
-def test_1RDM_response():
-	#pmDMET
-	mol, mf, impClusters  = test_makemole1()
-	symmetry = [0]*5  #or 'Translation'
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
-	runDMET.one_shot()
-	
-	#QC-DMET
-	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
-	myInts.TI_OK = True
-	method = 'ED'
-	SCmethod = 'LSTSQ' #Don't do it self-consistently
-	TI = True
-	theDMET = qc_dmet.dmet( myInts, impClusters, TI, method, SCmethod )	
-	
-	
-	uvec_size = runDMET.uvec.size
-	uvec = np.random.rand(uvec_size)
-	umat = runDMET.uvec2umat(uvec)	
-	
-	RDMderivs_QCDMET = theDMET.helper.construct1RDM_response( False, umat, None )
-	RDMderivs_pDMET = runDMET.construct_1RDM_response(uvec)	
-	diff = np.abs((RDMderivs_QCDMET - RDMderivs_pDMET)).sum()
-	assert np.isclose(RDMderivs_QCDMET.size, RDMderivs_pDMET.size)
-	assert np.isclose(diff , 0)	
-	
 def test_costfunction():
 	#pmDMET
 	mol, mf, impClusters  = test_makemole1()
 	symmetry = None  #or [0]*5, takes longer time
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'meta_lowdin', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = 'RHF')
 	runDMET.one_shot()
 	
 	#QC-DMET

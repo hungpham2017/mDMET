@@ -1,5 +1,5 @@
-# pmDMET
-Density matrix embedding theory for periodic/molecular systems
+# mpDMET
+Multipurpose Density matrix embedding theory package for molecular/periodic/lattice systems
 
 ## Overview:
 ### 1. Notes: 
@@ -8,9 +8,9 @@ Density matrix embedding theory for periodic/molecular systems
 - Using overlap matrix to do Smith decomposition
 - Using symmetry and multiple solvers
 - Single-embedding DMET (similar to CASCI=True in QC-DMET)
-- Quantum chemical solvers: RHF, CASCI, CASSCF
-
+- Quantum chemical solvers: RHF, CASCI/CASSCF, DMRG-CASCI/DMRG-CASSCF
+- Lattice Hamiltonian: 1D/2D Hamiltonian
 ### 3. On progress:
 - Smith decomposition for a UHF wavefunction
-- Smith decomposition from a Kohn-Sham 1RDM
-- Maximally localized Wannier functions for pyscf/pbc class
+- Smith decomposition for periodic systems
+- heisenberg Hamiltonian (XXZ,...)

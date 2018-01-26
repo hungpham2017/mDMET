@@ -1,1 +1,1 @@
-from . import orthobasis, schmidtbasis, qcsolvers, dmet
+from . import orthobasis, schmidtbasis, qcsolvers, latticeHamiltonian, dmet

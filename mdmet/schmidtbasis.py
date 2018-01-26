@@ -1,9 +1,6 @@
 '''
-Molecular Density Matrix Embedding theory
+Multipurpose Density Matrix Embedding theory (mp-DMET)
 Copyright (C) 2015 Hung Q. Pham
-ref: 
-J. Chem. Theory Comput. 2016, 12, 2706−2719
-PHYSICAL REVIEW B 89, 035140 (2014)
 Author: Hung Q. Pham, Unviversity of Minnesota
 email: phamx494@umn.edu
 '''
@@ -36,13 +33,10 @@ class RHF_decomposition:
 		'''
 
 		# Build the projectors for fragment and bath
-		S = self.mf.get_ovlp()
-		X = scipy.linalg.sqrtm(S)
-		Forbs = X[:, self.impOrbs == 1]
-		SFF_inv = np.linalg.inv(S[:,self.impOrbs == 1][self.impOrbs == 1,:])
-		P_F = reduce(np.dot,(Forbs, SFF_inv,Forbs.T))
-		P_B = np.identity(P_F.shape[0])- P_F
-		
+		nao = self.mf.mol.nao_nr()
+		P_F = np.zeros((nao,nao))
+		P_F[self.impOrbs == 1,self.impOrbs == 1] = 1
+		P_B = np.identity(nao)- P_F		
 		
 		
 		# Build the overlap matrix between hole states and fragment orbs
@@ -91,10 +85,13 @@ class RHF_decomposition:
 		eigenvals, eigenvecs = np.linalg.eigh(embedding1RDM)  	# 0 <= eigenvals <= 2		
 		
 		idx = np.maximum(-eigenvals, eigenvals - 2.0).argsort() # Occupation numbers closest to 1 come first
-		tokeep = np.sum(-np.maximum(-eigenvals, eigenvals - 2.0)[idx] > threshold)
+		
+		#TODO: whether the truncation should be used
+		'''tokeep = np.sum(-np.maximum(-eigenvals, eigenvals - 2.0)[idx] > threshold)
 		if tokeep < numBathOrbs:
 			print ("DMET::constructbath : Throwing out", numBathOrbs - tokeep, "orbitals which are within", threshold, "of 0 or 2.")
-		numBathOrbs = min(np.sum(tokeep), numBathOrbs)
+		numBathOrbs = min(np.sum(tokeep), numBathOrbs)'''
+		
 		eigenvals = eigenvals[idx]
 		eigenvecs = eigenvecs[:,idx]
 		pureEnvals = eigenvals[numBathOrbs:]
@@ -111,9 +108,9 @@ class RHF_decomposition:
 		embedding1RDM_frag = np.reshape(OneDM[isEmbedding_frag], (numEmbedOrbs_frag, numEmbedOrbs_frag))
 		eigenvals_frag, eigenvecs_frag = np.linalg.eigh(embedding1RDM_frag)  	# 0 <= eigenvals <= 2
 
-		#Debug:
+		#TODO:
 		#Whether one should reconstruct the the fragment orbitals?
-		if True: eigenvecs_frag = np.eye(eigenvecs_frag.shape[0],eigenvecs_frag.shape[0])
+		if False: eigenvecs_frag = np.eye(eigenvecs_frag.shape[0],eigenvecs_frag.shape[0])
 		
 		#Fragment orbitals: stack columns with zeros in the end
 		#Embedding orbitals: stack columns with zeros in the beginning	

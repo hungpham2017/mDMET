@@ -2,16 +2,11 @@
 Testing the self_consistent DMET
 '''
 
-import sys
-import pyscf
-from pyscf import gto, scf, dft, ao2mo
+import sys, os
+from pyscf import gto, scf
 import numpy as np
 import pytest
 from mdmet import orthobasis, schmidtbasis, qcsolvers, dmet
-import scipy as scipy
-sys.path.append('/panfs/roc/groups/6/gagliard/phamx494/QC-DMET/src')
-import localintegrals, qcdmet_paths
-import dmet as qc_dmet
 import time
 
 def test_makemole1():
@@ -29,9 +24,6 @@ def test_makemole1():
 
 	mf = scf.RHF(mol)
 	mf.scf()
-	mydft = dft.RKS(mol)
-	mydft.xc = 'b3lyp'
-	mydft.kernel()
 
 	atoms_per_imp = 2 # Impurity size = 1 atom
 	Norbs = mol.nao_nr()
@@ -45,7 +37,7 @@ def test_makemole1():
 			impurities[orbs_per_imp*cluster + orb] = 1
 		impClusters.append(impurities)
 
-	return mol, mf, mydft, impClusters 
+	return mol, mf, impClusters 
 
 def test_makemole2():
 	bondlength = 1.0
@@ -62,45 +54,40 @@ def test_makemole2():
 		impurity_orbitals[start:(start + unit_sizes[frag])] = 1
 		impClusters.append(impurity_orbitals)	
 	return mol, mf, impClusters 
-
-def test_self_consistent():
-	#mpDMET
-	mol, mf, mydft, impClusters  = test_makemole1()
-	symmetry = None  #or [0]*5, takes longer time
-	solverlist = 'CASCI' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'F', solver = solverlist)
-	#runDMET.CAS = [[4,4]]
-	runDMET.SC_canonical = True
-	time1 = time.time()
-	runDMET.self_consistent()
-	time2 = time.time()
-	time_mpDMET = time2 - time1
-	
-	#QC-DMET	
-	myInts = localintegrals.localintegrals( mf, range( mol.nao_nr() ), 'meta_lowdin' )
-	myInts.TI_OK = False
-	method = 'CASSCF'
-	SCmethod = 'BFGS' #Don't do it self-consistently
-	TI = False
-	theDMET = qc_dmet.dmet( myInts, impClusters, TI, method, SCmethod )	
-	theDMET.impCAS = (4,4)
-	time1 = time.time()
-	theDMET.doselfconsistent()
-	time2 = time.time()
-	time_QCDMET = time2 - time1	
-	
-	return runDMET.Energy_total, time_mpDMET, time_QCDMET	
-	
-'''def test_canonical_self_consistent():
+def test_solvers():
 	#mpDMET
 	mol, mf, impClusters  = test_makemole1()
-	symmetry = None  #or [0]*5, takes longer time
-	solverlist = 'RHF' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
-	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'FB', solver = solverlist)
-	#runDMET.CAS = [[4,4]]
-	time1 = time.time()
-	runDMET.canonical_self_consistent()
-	time2 = time.time()
-	time_mpDMET = time2 - time1
+	symmetry = 'Translation'  #or [0]*5, takes longer time
 	
-	return runDMET.Energy_total, time_mpDMET'''
+	time1 = time.time()
+	solverlist = 'CASCI' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'F', solver = solverlist)
+	runDMET.one_shot()
+	time2 = time.time()
+	time_FCI_1 = time2 - time1
+	E_FCI_1 = runDMET.Energy_total
+	
+	time1 = time.time()
+	solverlist = 'DMRG-CASCI-B' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'F', solver = solverlist)
+	runDMET.one_shot()
+	time2 = time.time()
+	time_FCI_2 = time2 - time1
+	E_FCI_2 = runDMET.Energy_total
+
+	time1 = time.time()
+	solverlist = 'DMRG-CASCI-C' #['RHF', 'CASCI', 'CASCI', 'CASCI', 'CASCI']
+	runDMET = dmet.DMET(mf, impClusters, symmetry, orthogonalize_method = 'overlap', schmidt_decomposition_method = 'OED', OEH_type = 'FOCK', SC_CFtype = 'F', solver = solverlist)
+	runDMET.one_shot()
+	time2 = time.time()
+	time_FCI_3 = time2 - time1
+	E_FCI_3 = runDMET.Energy_total
+	
+	assert np.isclose(E_FCI_2, E_FCI_1)	
+	assert np.isclose(E_FCI_3, E_FCI_1)
+	
+	#Remove DMRG temp directories
+	for i in range(10):
+		os.system('rm -rf ' + str(i) + '*')
+
+

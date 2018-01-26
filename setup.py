@@ -2,12 +2,12 @@ import setuptools
 
 if __name__ == "__main__":
     setuptools.setup(
-        name='pmDMET',
-        version="0.1.1",
-        description='Density Matrix Embedding Theory for Periodic/Molecular systems',
+        name='mpDMET',
+        version="0.1",
+        description='Multipurpose Density matrix embedding theory package',
         author='Hung Pham',
         author_email='phamx494@umn.edu',
-        url="https://github.com/hungpham2017/pydmet.git",
+        url="https://github.com/hungpham2017/mpdmet.git",
         license='BSD-3C',
         packages=setuptools.find_packages(),
         install_requires=[
@@ -34,6 +34,7 @@ if __name__ == "__main__":
             'pytest-pep8',
             'tox',
         ],
+
 
         classifiers=[
             'Development Status :: 4 - Beta',

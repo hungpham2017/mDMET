@@ -1,26 +1,24 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 project(cpp_libdmet)
 
-# This must be run using a conda environment
-if("$ENV{CONDA_PREFIX}" STREQUAL "")
-    message(FATAL_ERROR "This must be run within the MolSSI SSS conda prefix. "
-                        "Delete the build directory and try again")
-endif()
+set(anaconda "/panfs/roc/groups/6/gagliard/phamx494/anaconda")
 
-# Find the LAWrap for mkl_blas/lapack
+# Set INCLUDE and LIB 
+LINK_DIRECTORIES(${anaconda}/lib)
+INCLUDE_DIRECTORIES(${anaconda}/include)
+
+
+# Find the LAWrap for mkl_blas/lapack, pybind11
 find_package(LAWrap CONFIG REQUIRED)
-
-# CMake will sometimes find the conda python version
-# (rather the the python inside the sss environment)
-set(PYTHON_EXECUTABLE $ENV{CONDA_PREFIX}/bin/python3)
-
-# Find the pybind11 in the conda path
-set(PYBIND11_CPP_STANDARD -std=c++11)
-find_package(pybind11 CONFIG REQUIRED
-             PATHS $ENV{CONDA_PREFIX}
-             NO_DEFAULT_PATH)
-
+find_package(pybind11 CONFIG REQUIRED)
+message(STATUS "Found LAWrap: ${LAWrap_CONFIG}")
 message(STATUS "Found pybind11: ${pybind11_CONFIG}")
+
+# Set python
+set(PYTHON_EXECUTABLE)
+
+# Set pybind11 c++ standard
+set(PYBIND11_CPP_STANDARD -std=c++11)
 
 # Creates a python module named "module_name"
 pybind11_add_module(libdmet MODULE libdmet.cpp)

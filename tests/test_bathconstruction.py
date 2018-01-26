@@ -2,14 +2,12 @@
 Testing the implementation of the Schmidt decomposition class.
 '''
 
-import sys
 import pyscf
 from pyscf import gto, scf, ao2mo
 import numpy as np
 import pytest
 from mdmet import orthobasis, schmidtbasis, qcsolvers
 from functools import reduce
-import scipy as scipy
 
 numBathOrbs = 2
 
@@ -32,6 +30,22 @@ def test_makemole():
 	impOrbs[-numBathOrbs:] = 1
 
 	return mol, mf, impOrbs 
+	
+def test_makemole2():
+	bondlength = 1.0
+	mol = gto.M(atom='He 0 0.5 0; He -0.5 0 0; Be 1 0 0; Be 2 0 0; He 3 0.5 0; He 3 -0.5 0', basis='sto-6g')
+	mol.build(verbose=0)
+	mf = scf.RHF(mol)
+	mf.scf()
+	
+	unit_sizes = np.array([ 2, 5, 5, 2])
+	impClusters = []
+	for frag in range(4):
+		impurity_orbitals = np.zeros( [mol.nao_nr()], dtype = int)
+		start = unit_sizes[:frag].sum()
+		impurity_orbitals[start:(start + unit_sizes[frag])] = 1
+		impClusters.append(impurity_orbitals)	
+	return mol, mf, impClusters 	
 
 # The energies calculated in two different basis have to be the same
 def test_Etotal_newspace():
@@ -42,7 +56,7 @@ def test_Etotal_newspace():
 	umat = np.zeros((mol.nao_nr(), mol.nao_nr()))
 	ortho = orthobasis.Orthobasis(mf, method = 'overlap')
 	orthoOED = ortho.construct_orthoOED(umat, OEH_type = 'FOCK')
-	schmidt = smithbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
+	schmidt = schmidtbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
 	schmidt.method = 'overlap'
 	BathOrbs, FBEorbs, envOrbs = schmidt.baths()
 
@@ -67,6 +81,7 @@ def test_Etotal_newspace():
 This test is performed to check the exactness of embedding scheme in two different bath construction methods
 In general, the full system energy = E_fragment + E_bath + E_unentangled_environment
 
+$THEN:
 HOWEVER:
 - When using 1-rdm as the projector, one can partition the total energy into the energies for each fragment.
 That means: E_total = Sigma (E_x). This is called a "democratic partition" of unlocal operators.
@@ -78,10 +93,9 @@ This partition of Hilbert space projects the hole states into the local function
 space (bath). The embedding system has 2 x (the number of orbitals in the fragment) electrons.
 Adding up all fragment electrons does not result in the total electrons of the total system.
 How people calculate the fragment energy in this case?
-
-TODO: 
-- find a better partition scheme so that we can use the "democratic partition" of unlocal operators.
-- The 'boys' localization failed for distance larger than 2.0 angstroms
+$NOW:
+SOLVED (overcomplicate the projectors when working in a orthogonal basis).
+Two scheme give exactly the same embedding basis
 '''	
 def test_bathconstruction():
 	mol, mf, impOrbs  = test_makemole()
@@ -90,7 +104,7 @@ def test_bathconstruction():
 	umat = np.zeros((mol.nao_nr(), mol.nao_nr()))
 	ortho = orthobasis.Orthobasis(mf, method = 'overlap')
 	orthoOED = ortho.construct_orthoOED(umat, OEH_type = 'FOCK')
-	schmidt = smithbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
+	schmidt = schmidtbasis.RHF_decomposition(mf, impOrbs, numBathOrbs, orthoOED)	
 
 	schmidt.method = 'overlap'
 	BathOrbs1, FBEorbs1, envOrbs = schmidt.baths()
@@ -128,5 +142,6 @@ def test_bathconstruction():
 	Eimp1, Eemb1, OED1 = solver1.RHF()
 	Eimp2, Eemb2, OED2 = solver2.RHF()
 	assert np.isclose(Etest1 + Eemb1, mf.energy_elec()[0])
-	assert np.isclose(Etest2 + Eemb2, mf.energy_elec()[0])
+	assert np.isclose(Etest1, Etest2)
+	assert np.isclose(Eimp1, Eimp2)	
 	

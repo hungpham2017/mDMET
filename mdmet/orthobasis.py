@@ -1,5 +1,5 @@
 '''
-Molecular Density Matrix Embedding theory
+Multipurpose Density Matrix Embedding theory (mp-DMET)
 Copyright (C) 2015 Hung Q. Pham
 Author: Hung Q. Pham, Unviversity of Minnesota
 email: phamx494@umn.edu
@@ -18,7 +18,7 @@ class Orthobasis:
 		Prepare the orthonormal/localized set of orbitals for DMET
 		Args:
 			mf		: a mean-field wf
-			method	: overlap/boys/lowdin/meta_lowdin
+			method	: overlap/boys/lowdin/meta_lowdin. if method == lattice: U = 1
 					
 		Return:
 			U		: Tranformation matrix to the orthonormal basis
@@ -47,28 +47,32 @@ class Orthobasis:
 			self.U = np.dot( np.dot( ovlp_vecs, np.diag( np.power( ovlp_eigs, -0.5 ) ) ), ovlp_vecs.T )
 		elif method == 'meta_lowdin':
 			nao.AOSHELL[4] = ['1s0p0d0f', '2s1p0d0f'] #redefine the valence shell for Be	
-			self.U = orth.orth_ao( self.mol, 'meta_lowdin' )			
+			self.U = orth.orth_ao( self.mol, 'meta_lowdin' )
+		elif method == 'lattice':
+			self.orthoOEI = self.mf.get_hcore()
+			self.orthoTEI = ao2mo.incore.full(ao2mo.restore(8, self.mf._eri, self.Norbs), self.S, compact=False).reshape(self.Norbs, self.Norbs, self.Norbs, self.Norbs)
+			self.orthoFOCK = self.orthoOEI + self.mf.get_veff()
+		
+		if method != 'lattice':
+			#Tranform One-Electron Integral to orthonormal basis
+			OEI = self.mf.get_hcore()
+			self.orthoOEI = reduce(np.dot, (self.U.T, OEI, self.U))
 
-		#Tranform One-Electron Integral to orthonormal basis
-		OEI = self.mf.get_hcore()
-		self.orthoOEI = reduce(np.dot, (self.U.T, OEI, self.U))
+			#Tranform Two-Electron Integral to orthonormal basis	
+			Norbs = self.Norbs		
+			g_format = self.mol.intor('cint2e_sph')
+			TEI = np.zeros([Norbs, Norbs, Norbs, Norbs]) 
+			for cn1 in range(Norbs):
+				for cn2 in range(Norbs):
+					for cn3 in range(Norbs):
+						for cn4 in range(Norbs):
+							TEI[cn1][cn2][cn3][cn4] = g_format[cn1*Norbs + cn2][cn3*Norbs + cn4]		
+			self.orthoTEI = ao2mo.incore.full(ao2mo.restore(8, TEI, Norbs), self.U, compact=False).reshape(Norbs, Norbs, Norbs, Norbs)	
 
-		#Tranform Two-Electron Integral to orthonormal basis	
-		Norb = self.mol.nao_nr()		
-		g_format = self.mol.intor('cint2e_sph')
-		TEI = np.zeros([Norb, Norb, Norb, Norb]) 
-		for cn1 in range(Norb):
-			for cn2 in range(Norb):
-				for cn3 in range(Norb):
-					for cn4 in range(Norb):
-						TEI[cn1][cn2][cn3][cn4] = g_format[cn1*Norb+cn2][cn3*Norb+cn4]		
-		self.orthoTEI = ao2mo.incore.full(ao2mo.restore(8, TEI, Norb), self.U, compact=False).reshape(self.Norbs, self.Norbs, self.Norbs, self.Norbs)	
-
-		#Tranform Fock to orthonormal basis
-		dm = self.mf.make_rdm1()
-		vhf = self.mf.get_veff()
-		FOCK = self.mf.get_fock(OEI , self.S, vhf, dm)  
-		self.orthoFOCK = reduce(np.dot, (self.U.T, FOCK, self.U))
+			#Tranform Fock to orthonormal basis
+			vhf = self.mf.get_veff()
+			FOCK = OEI + vhf  
+			self.orthoFOCK = reduce(np.dot, (self.U.T, FOCK, self.U))
 		
 	def construct_orthoOED(self, umat, OEH_type):
 		'''
